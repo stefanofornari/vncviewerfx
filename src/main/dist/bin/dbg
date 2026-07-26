@@ -1,0 +1,28 @@
+#!/bin/sh
+
+# VncViewerFX
+# ----------
+# Copyright (C) 2026 Stefano Fornari. Licensed under the GNU General Public
+# License, version 2 (see LICENSE).
+#
+# All Rights Reserved.  No use, copying or distribution of this
+# work may be made except in accordance with a valid license
+# agreement from Stefano Fornari.  This notice must be
+# included on all copies, modifications and derivatives of this
+# work.
+#
+# STEFANO FORNARI MAKES NO REPRESENTATIONS OR WARRANTIES ABOUT THE SUITABILITY
+# OF THE SOFTWARE, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+# THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+# PURPOSE, OR NON-INFRINGEMENT. STEFANO FORNARI SHALL NOT BE LIABLE FOR ANY
+# DAMAGES SUFFERED BY LICENSEE AS A RESULT OF USING, MODIFYING OR DISTRIBUTING
+# THIS SOFTWARE OR ITS DERIVATIVES.
+
+scriptname=$(basename $0)
+scriptdir=$(cd $(dirname $0) && pwd)
+home=$(dirname "$scriptdir")
+
+export JAVA_OPTS="$JAVA_OPTS -Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=1044"
+command=$1
+shift
+(cd "$home"; exec $scriptdir/$command $@)
