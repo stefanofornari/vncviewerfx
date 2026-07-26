@@ -26,7 +26,7 @@ import com.tigervnc.rfb.Point;
  * Bridges JavaFX input events to VNC server coordinates.
  * Handles coordinate translation for scaled/scrolled views.
  */
-class EventBridge {
+public class EventBridge {
 
   private double scaleX = 1.0;
   private double scaleY = 1.0;

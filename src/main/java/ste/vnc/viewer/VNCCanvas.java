@@ -10,24 +10,41 @@ import javafx.scene.Cursor;
 
 import com.tigervnc.rfb.LogWriter;
 
-class DesktopCanvas extends Canvas {
+/**
+ * A JavaFX Canvas for displaying and interacting with a remote desktop via VNC.
+ * <p>
+ * This class is designed to be reusable as a pure JavaFX component and
+ * can be embedded in your own applications. It exposes {@code public} fields
+ * for mouse and keyboard listener assignment, allowing flexible integration.
+ * </p>
+ * <h3>Usage Example</h3>
+ * <pre>{@code
+ *   DesktopCanvas canvas = new DesktopCanvas(800, 600);
+ *   // Assign listeners as needed, example:
+ *   canvas.mouseListener = new MyMouseInputListener(...);
+ *   canvas.keyboardListener = new MyKeyboardInputListener(...);
+ *   // Add to your JavaFX scene:
+ *   root.getChildren().add(canvas);
+ * }
+ * </pre>
+ *
+ * See {@link ste.vnc.viewer.demo.VNCViewerFX} for a ready-to-run demo application.
+ */
+public class VNCCanvas extends Canvas {
 
-    private final ImageRenderFx imageRender;
-    private final EventBridge eventBridge;
-    private FxCConn connection;
-    private MouseInputListener mouseListener;
-    private FxKeyboardInputListener keyboardListener;
+    public MouseInputListener mouseListener;
+    public KeyboardInputListener keyboardListener;
+    private final ImageRender imageRender;
     private int desktopWidth = 800;
     private int desktopHeight = 600;
 
     private static final LogWriter vlog = new LogWriter("DesktopCanvasFx");
     private boolean loggedFirstDraw = false;
 
-    public DesktopCanvas(int width, int height) {
+    public VNCCanvas(int width, int height) {
         this.desktopWidth = width;
         this.desktopHeight = height;
-        this.imageRender = new ImageRenderFx(width, height);
-        this.eventBridge = new EventBridge();
+        this.imageRender = new ImageRender(width, height);
         setWidth(width);
         setHeight(height);
         setFocusTraversable(true);
@@ -43,12 +60,6 @@ class DesktopCanvas extends Canvas {
         setOnKeyReleased(this::handleKeyReleased);
         setOnKeyTyped(this::handleKeyTyped);
         redraw();
-    }
-
-    public void setConnection(FxCConn conn) {
-        this.connection = conn;
-        this.mouseListener = new MouseInputListener(connection, eventBridge);
-        this.keyboardListener = new FxKeyboardInputListener(connection, eventBridge);
     }
 
     public void resizeDesktop(int width, int height) {
@@ -96,11 +107,7 @@ class DesktopCanvas extends Canvas {
         );
     }
 
-    public void setScale(double scaleX, double scaleY) {
-        eventBridge.setScale(scaleX, scaleY);
-    }
-
-    public ImageRenderFx getImageRender() {
+    public ImageRender getImageRender() {
         return imageRender;
     }
 
@@ -141,38 +148,52 @@ class DesktopCanvas extends Canvas {
         setCursor(cursor);
     }
 
-    void handleMousePressed(javafx.scene.input.MouseEvent e) {
+    public void handleMousePressed(javafx.scene.input.MouseEvent e) {
         requestFocus();
-        mouseListener.onMousePressed(e);
-    }
-
-    void handleMouseReleased(javafx.scene.input.MouseEvent e) {
-        mouseListener.onMouseReleased(e);
-    }
-
-    void handleMouseMoved(javafx.scene.input.MouseEvent e) {
-        mouseListener.onMouseMoved(e);
-    }
-
-    void handleMouseDragged(javafx.scene.input.MouseEvent e) {
-        mouseListener.onMouseMoved(e);
-    }
-
-    void handleScroll(javafx.scene.input.ScrollEvent e) {
-        if (connection != null) {
-            connection.writeWheelEvent(e);
+        if (mouseListener != null) {
+            mouseListener.onMousePressed(e);
         }
     }
 
-    void handleKeyPressed(javafx.scene.input.KeyEvent e) {
-        keyboardListener.onKeyPressed(e);
+    public void handleMouseReleased(javafx.scene.input.MouseEvent e) {
+        if (mouseListener != null) {
+            mouseListener.onMouseReleased(e);
+        }
     }
 
-    void handleKeyReleased(javafx.scene.input.KeyEvent e) {
-        keyboardListener.onKeyReleased(e);
+    public void handleMouseMoved(javafx.scene.input.MouseEvent e) {
+        if (mouseListener != null) {
+            mouseListener.onMouseMoved(e);
+        }
     }
 
-    void handleKeyTyped(javafx.scene.input.KeyEvent e) {
-        keyboardListener.onKeyTyped(e);
+    public void handleMouseDragged(javafx.scene.input.MouseEvent e) {
+        if (mouseListener != null) {
+            mouseListener.onMouseMoved(e);
+        }
+    }
+
+    public void handleScroll(javafx.scene.input.ScrollEvent e) {
+        if (mouseListener != null) {
+            mouseListener.onMouseScroll(e);
+        }
+    }
+
+    public void handleKeyPressed(javafx.scene.input.KeyEvent e) {
+        if (keyboardListener != null) {
+            keyboardListener.onKeyPressed(e);
+        }
+    }
+
+    public void handleKeyReleased(javafx.scene.input.KeyEvent e) {
+        if (keyboardListener != null) {
+            keyboardListener.onKeyReleased(e);
+        }
+    }
+
+    public void handleKeyTyped(javafx.scene.input.KeyEvent e) {
+        if (keyboardListener != null) {
+            keyboardListener.onKeyTyped(e);
+        }
     }
 }

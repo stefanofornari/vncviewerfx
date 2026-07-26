@@ -16,7 +16,7 @@
  * USA.
  */
 
-package ste.vnc.viewer;
+package ste.vnc.viewer.demo;
 
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
@@ -41,11 +41,11 @@ import com.tigervnc.rfb.VoidParameter;
 /**
  * Simple JavaFX options dialog for the most common VNC viewer parameters.
  */
-class OptionsDialogFx {
+class OptionsDialogFX {
 
   private final Window owner;
 
-  public OptionsDialogFx(Window owner) {
+  public OptionsDialogFX(Window owner) {
     this.owner = owner;
   }
 

@@ -19,20 +19,27 @@ import com.tigervnc.rfb.ScreenSet;
 import com.tigervnc.rfb.fenceTypes;
 import java.util.Iterator;
 import javafx.application.Platform;
+import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
+import javafx.geometry.Dimension2D;
 import javafx.scene.input.ScrollEvent;
 
-class FxCConn extends CConnection implements FdInStreamBlockCallback {
+public class CConnFX extends CConnection implements FdInStreamBlockCallback {
+
+    public final ObjectProperty<Dimension2D> canvasSize = new SimpleObjectProperty<>();
+    public final StringProperty clipboard = new SimpleStringProperty();
 
     private static final LogWriter vlog = new LogWriter("FxCConn");
     static final PixelFormat verylowColourPF = new PixelFormat(8, 3, false, true, 1, 1, 1, 2, 1, 0);
     static final PixelFormat lowColourPF = new PixelFormat(8, 6, false, true, 3, 3, 3, 4, 2, 0);
     static final PixelFormat mediumColourPF = new PixelFormat(8, 8, false, false, 7, 7, 3, 0, 3, 6);
 
-    private final VNCViewerFX viewer;
-    private DesktopCanvas canvas;
-    private Viewport viewport;
+    private final ImageRender imageRender;
+    private final Runnable redraw;
     private final EventBridge eventBridge = new EventBridge();
-    private Socket sock;
+    private final Socket sock;
     private boolean shuttingDown;
     private boolean pendingPFChange;
     private PixelFormat pendingPF;
@@ -49,21 +56,22 @@ class FxCConn extends CConnection implements FdInStreamBlockCallback {
     private boolean continuousUpdates;
     private boolean forceNonincremental = true;
     private boolean supportsSyncFence;
-    private boolean fullScreen;
     private int lastRequestedDesktopWidth = -1;
     private int lastRequestedDesktopHeight = -1;
     private int pendingDesktopWidth = -1;
     private int pendingDesktopHeight = -1;
 
-    public FxCConn(VNCViewerFX viewer, Socket sock, String serverName) throws Exception {
-        this.viewer = viewer;
-        this.sock = sock;
-        setShared(viewer.shared.getValue());
+    public CConnFX(ImageRender imageRender, Runnable redraw) throws Exception {
+        this.imageRender = imageRender; // TODO: remove
+        this.redraw = redraw;
 
-        // Hard-wire protocol options for this FX viewer:
+        //
+        // Hard-wire protocol options that we comfortable they work
         // - No local cursor rendering (server renders cursor in framebuffer)
         // - ZRLE encoding with lossless (no-JPEG) compression
         // - Compression level 0
+        //
+        setShared(true);
         cp.supportsLocalCursor = false;
         cp.supportsDesktopResize = true;
         cp.supportsExtendedDesktopSize = true;
@@ -73,9 +81,10 @@ class FxCConn extends CConnection implements FdInStreamBlockCallback {
         cp.compressLevel = 0;
         cp.noJpeg = true;
 
-        if (sock != null) {
-            vlog.info("Accepted connection from " + sock.getPeerEndpoint());
-        }
+        sock = new TcpSocket("127.0.0.1", 5905);
+
+        vlog.info("Accepted connection from " + sock.getPeerEndpoint());
+
         sock.inStream().setBlockCallback(this);
         setStreams(sock.inStream(), sock.outStream());
         initialiseProtocol();
@@ -85,15 +94,6 @@ class FxCConn extends CConnection implements FdInStreamBlockCallback {
     public PixelFormat getPreferredPF() {
         return fullColourPF;
     }
-
-    public void setViewport(Viewport viewport) {
-        this.viewport = viewport;
-    }
-
-    public void setCanvas(DesktopCanvas canvas) {
-        this.canvas = canvas;
-    }
-
     public void connectionReady() {
     }
 
@@ -126,22 +126,15 @@ class FxCConn extends CConnection implements FdInStreamBlockCallback {
         super.serverInit();
         serverPF = cp.pf();
         vlog.info("Server pixel format: " + serverPF.print());
-        if (canvas != null) {
-            // Resize the underlying pixel buffer immediately on the RFB thread so
-            // that subsequent decoder calls (fillRect/imageRect) never overrun it.
-            canvas.getImageRender().setServerPF(serverPF);
-            canvas.getImageRender().resize(cp.width, cp.height);
+        // Resize the underlying pixel buffer immediately on the RFB thread so
+        // that subsequent decoder calls (fillRect/imageRect) never overrun it.
+        imageRender.setServerPF(serverPF);
+        imageRender.resize(cp.width, cp.height);
 
-            // Update the JavaFX canvas and window geometry on the FX thread.
-            runOnFxThread(() -> {
-                canvas.resizeDesktop(cp.width, cp.height);
-                if (viewport != null) {
-                    viewport.resizeContent(cp.width, cp.height);
-                }
-            });
+        // Update the JavaFX canvas and window geometry on the FX thread.
+        Platform.runLater(() -> canvasSize.set(new Dimension2D(cp.width, cp.height)));
 
-            fullColourPF = serverPF;
-        }
+        fullColourPF = serverPF;
         formatChange = true;
         encodingChange = true;
 
@@ -149,14 +142,6 @@ class FxCConn extends CConnection implements FdInStreamBlockCallback {
         if (pendingPFChange) {
             cp.setPF(pendingPF);
             pendingPFChange = false;
-        }
-    }
-
-    @Override
-    public void setName(String name) {
-        super.setName(name);
-        if (viewport != null) {
-            runOnFxThread(() -> viewport.setTitle(name + " - TigerVNC"));
         }
     }
 
@@ -188,9 +173,8 @@ class FxCConn extends CConnection implements FdInStreamBlockCallback {
 
     @Override
     public void framebufferUpdateEnd() {
-        if (canvas != null) {
-            runOnFxThread(canvas::redraw);
-        }
+        redraw.run();
+
         if (firstUpdate) {
             vlog.info("First framebuffer update " + cp.width + "x" + cp.height);
 
@@ -210,9 +194,7 @@ class FxCConn extends CConnection implements FdInStreamBlockCallback {
 
     @Override
     public void setColourMapEntries(int firstColour, int nColours, int[] rgbs) {
-        if (canvas != null) {
-            canvas.getImageRender().setColourMapEntries(firstColour, nColours, rgbs);
-        }
+        imageRender.setColourMapEntries(firstColour, nColours, rgbs);
     }
 
     @Override
@@ -223,9 +205,7 @@ class FxCConn extends CConnection implements FdInStreamBlockCallback {
     @Override
     public void serverCutText(String str, int len) {
         vlog.debug("Received ServerCutText of length " + len);
-        if (viewer != null) {
-            viewer.setServerClipboardText(str);
-        }
+        Platform.runLater( () -> clipboard.set(str));
     }
 
     @Override
@@ -240,32 +220,25 @@ class FxCConn extends CConnection implements FdInStreamBlockCallback {
 
     @Override
     public void fillRect(Rect r, int p) {
-        if (canvas != null) {
-            canvas.getImageRender().fillRect(r.tl.x, r.tl.y, r.width(), r.height(), p);
-        }
+        imageRender.fillRect(r.tl.x, r.tl.y, r.width(), r.height(), p);
     }
 
     @Override
     public void imageRect(Rect r, Object p) {
-        if (canvas != null) {
-            canvas.getImageRender().imageRect(r.tl.x, r.tl.y, r.width(), r.height(), p);
-        }
+        imageRender.imageRect(r.tl.x, r.tl.y, r.width(), r.height(), p);
     }
 
     @Override
     public void copyRect(Rect r, int sx, int sy) {
-        if (canvas != null) {
-            canvas.getImageRender().copyRect(r.tl.x, r.tl.y, r.width(), r.height(), sx, sy);
-        }
+        imageRender.copyRect(r.tl.x, r.tl.y, r.width(), r.height(), sx, sy);
     }
 
+    /* CHECK
     @Override
     public void setCursor(int width, int height, Point hotspot, int[] data, byte[] mask) {
-        if (canvas == null) {
-            return;
-        }
         runOnFxThread(() -> canvas.setRemoteCursor(width, height, hotspot, data, mask));
     }
+    */
 
     @Override
     public void fence(int flags, int len, byte[] data) {
@@ -294,9 +267,7 @@ class FxCConn extends CConnection implements FdInStreamBlockCallback {
             pf.read(memStream);
             vlog.info("Fence: new pixel format: " + pf.print());
 
-            if (canvas != null) {
-                canvas.getImageRender().setServerPF(pf);
-            }
+            imageRender.setServerPF(pf);
             cp.setPF(pf);
         }
     }
@@ -399,17 +370,12 @@ class FxCConn extends CConnection implements FdInStreamBlockCallback {
     }
 
     private void resizeFramebuffer() {
-        if (canvas != null && cp.width > 0 && cp.height > 0) {
+        if (cp.width > 0 && cp.height > 0) {
             // Resize the underlying pixel buffer on the RFB thread first
-            canvas.getImageRender().resize(cp.width, cp.height);
+            imageRender.resize(cp.width, cp.height);
 
             // Update the JavaFX canvas on the FX thread
-            runOnFxThread(() -> {
-                canvas.resizeDesktop(cp.width, cp.height);
-                if (viewport != null) {
-                    viewport.resizeContent(cp.width, cp.height);
-                }
-            });
+            Platform.runLater(() -> canvasSize.set(new Dimension2D(cp.width, cp.height)));
         }
 
         if (continuousUpdates) {
@@ -508,17 +474,5 @@ class FxCConn extends CConnection implements FdInStreamBlockCallback {
             return;
         }
         writer().writeClientCutText(str, len);
-    }
-
-    public Socket getSocket() {
-        return sock;
-    }
-
-    public void reconnect(String serverName) throws Exception {
-        close();
-        sock = new TcpSocket(com.tigervnc.rfb.Hostname.getHost(serverName), com.tigervnc.rfb.Hostname.getPort(serverName));
-        sock.inStream().setBlockCallback(this);
-        setStreams(sock.inStream(), sock.outStream());
-        initialiseProtocol();
     }
 }

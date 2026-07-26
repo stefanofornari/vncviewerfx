@@ -45,4 +45,4 @@ JAVA_OPTS="-Djava.util.logging.config.file="$home/bin/logging.properties" --modu
 load_config $scriptname
 
 exec 2>&1
-exec $uidcmd $javacmd $JAVA_OPTS ste.vnc.viewer.VNCViewerFX --Server=127.0.0.1:5905 --SecurityTypes=None --Shared=0 --PreferredEncoding=zrle --AutoSelect=0 --NoJPEG=true --CompressLevel=0 --SendClipboard=true --AcceptClipboard=true --UseLocalCursor=false $*
+exec $uidcmd $javacmd $JAVA_OPTS ste.vnc.viewer.demo.VNCViewerFX --Server=127.0.0.1:5905 --SecurityTypes=None --Shared=0 --PreferredEncoding=zrle --AutoSelect=0 --NoJPEG=true --CompressLevel=0 --SendClipboard=true --AcceptClipboard=true --UseLocalCursor=false $*

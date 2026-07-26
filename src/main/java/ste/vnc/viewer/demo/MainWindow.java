@@ -16,7 +16,7 @@
  * USA.
  */
 
-package ste.vnc.viewer;
+package ste.vnc.viewer.demo;
 
 import javafx.stage.Stage;
 import javafx.scene.Scene;
@@ -29,21 +29,23 @@ import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.KeyCode;
+import ste.vnc.viewer.CConnFX;
+import ste.vnc.viewer.VNCCanvas;
 
 /**
  * JavaFX Stage-based window for VNC viewer.
  * Provides window management and UI layout.
  */
-class Viewport {
+class MainWindow {
 
   private Stage stage;
   private BorderPane root;
   private ScrollPane scrollPane;
-  private DesktopCanvas canvas;
-  private FxCConn connection;
+  private VNCCanvas canvas;
+  private CConnFX connection;
   private Runnable onClose;
 
-  public Viewport(String title, DesktopCanvas canvas, FxCConn connection) {
+  public MainWindow(String title, VNCCanvas canvas, CConnFX connection) {
     this.canvas = canvas;
     this.connection = connection;
     this.stage = new Stage();
@@ -200,7 +202,7 @@ class Viewport {
   }
 
   private void onOptions() {
-    OptionsDialogFx dialog = new OptionsDialogFx(stage);
+    OptionsDialogFX dialog = new OptionsDialogFX(stage);
     dialog.show();
   }
 

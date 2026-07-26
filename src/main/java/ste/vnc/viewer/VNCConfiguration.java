@@ -18,109 +18,109 @@ import dev.dirs.UserDirectories;
  */
 public class VNCConfiguration {
 
-    static BoolParameter noLionFS
+    public BoolParameter noLionFS
         = new BoolParameter("NoLionFS",
             "On Mac systems, setting this parameter will force the use of the old "
             + "(pre-Lion) full-screen mode, even if the viewer is running on OS X 10.7 "
             + "Lion or later.",
             false);
 
-    BoolParameter embed
+    public BoolParameter embed
         = new BoolParameter("Embed",
             "If the viewer is being run as an applet, display its output to "
             + "an embedded frame in the browser window rather than to a dedicated "
             + "window. Embed=1 implies FullScreen=0 and Scale=100.",
             false);
 
-    BoolParameter useLocalCursor
+    public BoolParameter useLocalCursor
         = new BoolParameter("UseLocalCursor",
             "Render the mouse cursor locally",
             true);
-    BoolParameter sendLocalUsername
+    public BoolParameter sendLocalUsername
         = new BoolParameter("SendLocalUsername",
             "Send the local username for SecurityTypes "
             + "such as Plain rather than prompting",
             true);
-    StringParameter passwordFile
+    public StringParameter passwordFile
         = new StringParameter("PasswordFile",
             "Password file for VNC authentication",
             "");
-    AliasParameter passwd
+    public AliasParameter passwd
         = new AliasParameter("passwd",
             "Alias for PasswordFile",
             passwordFile);
-    BoolParameter autoSelect
+    public BoolParameter autoSelect
         = new BoolParameter("AutoSelect",
             "Auto select pixel format and encoding",
             true);
-    BoolParameter fullColour
+    public BoolParameter fullColour
         = new BoolParameter("FullColour",
             "Use full colour - otherwise 6-bit colour is "
             + "used until AutoSelect decides the link is "
             + "fast enough",
             true);
-    AliasParameter fullColourAlias
+    public AliasParameter fullColourAlias
         = new AliasParameter("FullColor",
             "Alias for FullColour",
             fullColour);
-    IntParameter lowColourLevel
+    public IntParameter lowColourLevel
         = new IntParameter("LowColorLevel",
             "Color level to use on slow connections. "
             + "0 = Very Low (8 colors), 1 = Low (64 colors), "
             + "2 = Medium (256 colors)",
             2);
-    AliasParameter lowColourLevelAlias
+    public AliasParameter lowColourLevelAlias
         = new AliasParameter("LowColourLevel",
             "Alias for LowColorLevel",
             lowColourLevel);
-    StringParameter preferredEncoding
+    public StringParameter preferredEncoding
         = new StringParameter("PreferredEncoding",
             "Preferred encoding to use (Tight, ZRLE, "
             + "hextile or raw) - implies AutoSelect=0",
             "Tight");
-    BoolParameter viewOnly
+    public BoolParameter viewOnly
         = new BoolParameter("ViewOnly",
             "Don't send any mouse or keyboard events to "
             + "the server",
             false);
-    BoolParameter shared
+    public BoolParameter shared
         = new BoolParameter("Shared",
             "Don't disconnect other viewers upon "
             + "connection - share the desktop instead",
             false);
-    BoolParameter fullScreen
+    public BoolParameter fullScreen
         = new BoolParameter("FullScreen",
             "Full Screen Mode",
             false);
-    BoolParameter fullScreenAllMonitors
+    public BoolParameter fullScreenAllMonitors
         = new BoolParameter("FullScreenAllMonitors",
             "Enable full screen over all monitors",
             true);
-    BoolParameter acceptClipboard
+    public BoolParameter acceptClipboard
         = new BoolParameter("AcceptClipboard",
             "Accept clipboard changes from the server",
             true);
-    BoolParameter sendClipboard
+    public BoolParameter sendClipboard
         = new BoolParameter("SendClipboard",
             "Send clipboard changes to the server",
             true);
-    static IntParameter maxCutText
+    public IntParameter maxCutText
         = new IntParameter("MaxCutText",
             "Maximum permitted length of an outgoing clipboard update",
             262144);
-    StringParameter menuKey
+    public StringParameter menuKey
         = new StringParameter("MenuKey",
             "The key which brings up the popup menu",
             "F8");
-    StringParameter desktopSize
+    public StringParameter desktopSize
         = new StringParameter("DesktopSize",
             "Reconfigure desktop size on the server on "
             + "connect (if possible)", "");
-    BoolParameter listenMode
+    public BoolParameter listenMode
         = new BoolParameter("listen",
             "Listen for connections from VNC servers",
             false);
-    StringParameter scalingFactor
+    public StringParameter scalingFactor
         = new StringParameter("ScalingFactor",
             "Reduce or enlarge the remote desktop image. "
             + "The value is interpreted as a scaling factor "
@@ -133,27 +133,27 @@ public class VNCConfiguration {
             + "then automatic scaling is performed, but the "
             + "original aspect ratio is preserved.",
             "100");
-    BoolParameter alwaysShowServerDialog
+    public BoolParameter alwaysShowServerDialog
         = new BoolParameter("AlwaysShowServerDialog",
             "Always show the server dialog even if a server "
             + "has been specified in an applet parameter or on "
             + "the command line",
             false);
-    StringParameter vncServerName
+    public StringParameter vncServerName
         = new StringParameter("Server",
             "The VNC server <host>[:<dpyNum>] or "
             + "<host>::<port>",
             null);
-    IntParameter vncServerPort
+    public IntParameter vncServerPort
         = new IntParameter("Port",
             "The VNC server's port number, assuming it is on "
             + "the host from which the applet was downloaded",
             0);
-    BoolParameter acceptBell
+    public BoolParameter acceptBell
         = new BoolParameter("AcceptBell",
             "Produce a system beep when requested to by the server.",
             true);
-    StringParameter via
+    public StringParameter via
         = new StringParameter("Via",
             "Automatically create an encrypted TCP tunnel to "
             + "the gateway machine, then connect to the VNC host "
@@ -167,14 +167,14 @@ public class VNCConfiguration {
             + "not the machine on which the viewer was launched. "
             + "See the System Properties section below for "
             + "information on configuring the -Via option.", null);
-    BoolParameter tunnel
+    public BoolParameter tunnel
         = new BoolParameter("Tunnel",
             "The -Tunnel command is basically a shorthand for the "
             + "-via command when the VNC server and SSH gateway are "
             + "one and the same. -Tunnel creates an SSH connection "
             + "to the server and forwards the VNC through the tunnel "
             + "without the need to specify anything else.", false);
-    BoolParameter extSSH
+    public BoolParameter extSSH
         = new BoolParameter("extSSH",
             "By default, SSH tunneling uses the embedded JSch client "
             + "for tunnel creation. This option causes the client to "
@@ -182,12 +182,12 @@ public class VNCConfiguration {
             + "operations. By default, \"/usr/bin/ssh\" is used, however "
             + "the path to the external application may be specified using "
             + "the -SSHClient option.", false);
-    StringParameter extSSHClient
+    public StringParameter extSSHClient
         = new StringParameter("extSSHClient",
             "Specifies the path to an external SSH client application "
             + "that is to be used for tunneling operations when the -extSSH "
             + "option is in effect.", "/usr/bin/ssh");
-    StringParameter extSSHArgs
+    public StringParameter extSSHArgs
         = new StringParameter("extSSHArgs",
             "Specifies the arguments string or command template to be used "
             + "by the external SSH client application when the -extSSH option "
@@ -196,18 +196,18 @@ public class VNCConfiguration {
             + "system properties, and can be used to override those in a more "
             + "command-line friendly way. If not specified, then the appropriate "
             + "VNC_TUNNEL_CMD or VNC_VIA_CMD command template will be used.", null);
-    StringParameter sshConfig
+    public StringParameter sshConfig
         = new StringParameter("SSHConfig",
             "Specifies the path to an OpenSSH configuration file that to "
             + "be parsed by the embedded JSch SSH client during tunneling "
             + "operations.", UserDirectories.get().homeDir + "/.ssh/config");
-    StringParameter sshKey
+    public StringParameter sshKey
         = new StringParameter("SSHKey",
             "When using the Via or Tunnel options with the embedded SSH client, "
             + "this parameter specifies the text of the SSH private key to use when "
             + "authenticating with the SSH server. You can use \\n within the string "
             + "to specify a new line.", null);
-    StringParameter sshKeyFile
+    public StringParameter sshKeyFile
         = new StringParameter("SSHKeyFile",
             "When using the Via or Tunnel options with the embedded SSH client, "
             + "this parameter specifies a file that contains an SSH private key "
@@ -215,41 +215,41 @@ public class VNCConfiguration {
             + "specified, ~/.ssh/id_dsa or ~/.ssh/id_rsa will be used (if they exist). "
             + "Otherwise, the client will fallback to prompting for an SSH password.",
             null);
-    StringParameter sshKeyPass
+    public StringParameter sshKeyPass
         = new StringParameter("SSHKeyPass",
             "When using the Via or Tunnel options with the embedded SSH client, "
             + "this parameter specifies the passphrase for the SSH key.", null);
-    BoolParameter customCompressLevel
+    public BoolParameter customCompressLevel
         = new BoolParameter("CustomCompressLevel",
             "Use custom compression level. "
             + "Default if CompressLevel is specified.",
             false);
-    IntParameter compressLevel
+    public IntParameter compressLevel
         = new IntParameter("CompressLevel",
             "Use specified compression level "
             + "0 = Low, 6 = High",
             1);
-    BoolParameter noJpeg
+    public BoolParameter noJpeg
         = new BoolParameter("NoJPEG",
             "Disable lossy JPEG compression in Tight encoding.",
             false);
-    IntParameter qualityLevel
+    public IntParameter qualityLevel
         = new IntParameter("QualityLevel",
             "JPEG quality level. "
             + "0 = Low, 9 = High",
             8);
-    StringParameter x509ca
+    public StringParameter x509ca
         = new StringParameter("X509CA",
             "Path to CA certificate to use when authenticating remote servers "
             + "using any of the X509 security schemes (X509None, X509Vnc, etc.). "
             + "Must be in PEM format.",
             UserDirectories.get().homeDir + "/.vnc/x509_ca.pem");
-    StringParameter x509crl
+    public StringParameter x509crl
         = new StringParameter("X509CRL",
             "Path to certificate revocation list to use in conjunction with "
             + "-X509CA. Must also be in PEM format.",
             UserDirectories.get().homeDir + "/.vnc/x509_crl.pem");
-    StringParameter config
+    public StringParameter config
         = new StringParameter("config",
             "Specifies a configuration file to load.", null);
 

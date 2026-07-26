@@ -1,4 +1,4 @@
-package ste.vnc.viewer;
+package ste.vnc.viewer.demo;
 
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -9,20 +9,33 @@ import javafx.animation.Timeline;
 import javafx.animation.KeyFrame;
 import javafx.util.Duration;
 
-import com.tigervnc.network.Socket;
-import com.tigervnc.network.TcpSocket;
 import com.tigervnc.rfb.Configuration;
 import com.tigervnc.rfb.LogWriter;
 import com.tigervnc.rfb.Security;
 import com.tigervnc.rfb.SecurityClient;
+import ste.vnc.viewer.CConnFX;
+import ste.vnc.viewer.EventBridge;
+import ste.vnc.viewer.KeyboardInputListener;
+import ste.vnc.viewer.MouseInputListener;
+import ste.vnc.viewer.VNCCanvas;
+import ste.vnc.viewer.VNCConfiguration;
 
+/**
+ * Main JavaFX Application for running a VNC viewer demo.
+ * <p>
+ * This application demonstrates use of {@link VNCCanvas} as a JavaFX control
+ * for displaying a remote VNC desktop. You can launch this class directly to try
+ * the VNC viewer, or reference the {@code DesktopCanvas} in your own projects for
+ * embedded VNC.
+ * </p>
+ */
 public class VNCViewerFX extends Application {
 
     public final Param shared = new Param(true); // TODO:
 
-    private Viewport viewport;
-    private FxCConn connection;
-    private DesktopCanvas canvas;
+    private MainWindow viewport;
+    private CConnFX connection;
+    private VNCCanvas canvas;
 
     // Last clipboard contents that originated from the server, used to
     // avoid echoing clipboard updates straight back to the server.
@@ -33,8 +46,8 @@ public class VNCViewerFX extends Application {
 
     private static final LogWriter vlog = new LogWriter("VncViewerFx");
 
-    public Viewport createViewport(String title, DesktopCanvas canvas, FxCConn connection) {
-        Viewport v = new Viewport(title, canvas, connection);
+    public MainWindow createViewport(String title, VNCCanvas canvas, CConnFX connection) {
+        MainWindow v = new MainWindow(title, canvas, connection);
         this.viewport = v;
         return v;
     }
@@ -70,24 +83,27 @@ public class VNCViewerFX extends Application {
     @Override
     public void start(Stage primaryStage) {
 
+        VNCConfiguration vncConfiguration = new  VNCConfiguration(getParameters());
+
         // Enable viewer parameters so Configuration.setParam() can see them
         Configuration.enableViewerParams();
-
 
         // Restrict security to None only
         SecurityClient.setDefaults();
         Security.enabledSecTypes.clear();
         Security.EnableSecType(Security.secTypeNone);
-
         try {
-            // Establish TCP socket to the server
-            Socket sock = new TcpSocket("127.0.0.1", 5905);
+            final EventBridge eventBridge = new EventBridge();
 
             // Create canvas and connection
-            canvas = new DesktopCanvas(800, 600);
-            connection = new FxCConn(this, sock, "127.0.0.1:5905");
-            canvas.setConnection(connection);
-            connection.setCanvas(canvas);
+            canvas = new VNCCanvas(800, 600);
+
+            connection = new CConnFX(canvas.getImageRender(), () -> {
+                Platform.runLater(canvas::redraw);
+            });
+
+            canvas.mouseListener = new MouseInputListener(connection, eventBridge);
+            canvas.keyboardListener = new KeyboardInputListener(connection, eventBridge);
 
             // Start the RFB processing loop on a background thread so that
             // incoming framebuffer updates are handled continuously.
@@ -106,9 +122,21 @@ public class VNCViewerFX extends Application {
             rfbThread.start();
 
             // Create and show viewport window
-            viewport = new Viewport("127.0.0.1:5905", canvas, connection);
-            connection.setViewport(viewport);
+            viewport = new MainWindow("127.0.0.1:5905", canvas, connection);
             viewport.setOnClose(connection::close);
+
+            connection.canvasSize.addListener((o, ov, nv) -> {
+                Platform.runLater(() -> {
+                    canvas.resizeDesktop((int)nv.getWidth(), (int)nv.getHeight());
+                    viewport.resizeContent((int)nv.getWidth(), (int)nv.getHeight());
+                });
+            });
+            connection.clipboard.addListener((o, ov, nv) -> {
+                setServerClipboardText(nv);
+            });
+
+            viewport.setTitle("VNCViewerFX");
+
             viewport.show();
 
             // Start clipboard synchronization on the JavaFX application thread:
@@ -131,7 +159,7 @@ public class VNCViewerFX extends Application {
                             && !current.equals(lastClipboardFromServer)) {
                             lastClipboardSent = current;
 
-                            int max = VNCConfiguration.maxCutText.getValue();
+                            int max = vncConfiguration.maxCutText.getValue();
                             String toSend = current;
                             if (max > 0 && toSend.length() > max) {
                                 toSend = toSend.substring(0, max);
@@ -196,5 +224,12 @@ public class VNCViewerFX extends Application {
         String getDefaultStr() {
             return s == null ? "" : s;
         }
+    }
+
+    /**
+     * Main entrypoint for launching the JavaFX VNC viewer demo.
+     */
+    public static void main(String[] args) {
+        launch(args);
     }
 }

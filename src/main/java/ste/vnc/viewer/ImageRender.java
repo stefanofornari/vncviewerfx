@@ -3,10 +3,9 @@ package ste.vnc.viewer;
 import com.tigervnc.rfb.LogWriter;
 
 /**
- * Minimal framebuffer for the FX viewer.
- * Stores ARGB ints in a flat array; JavaFX rendering is done in DesktopCanvasFx.
+ * Minimal framebuffer that can be used to actually render the incoming rectangles
  */
-class ImageRenderFx {
+public class ImageRender {
 
   private static final LogWriter vlog = new LogWriter("ImageRenderFx");
 
@@ -14,7 +13,7 @@ class ImageRenderFx {
   private int height;
   private int[] framebuffer;
 
-  public ImageRenderFx(int width, int height) {
+  public ImageRender(int width, int height) {
     resize(width, height);
   }
 
