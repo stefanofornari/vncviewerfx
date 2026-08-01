@@ -1,0 +1,19 @@
+#!/bin/sh
+unset XDG_RUNTIME_DIR
+unset SESSION_MANAGER
+unset DBUS_SESSION_BUS_ADDRESS
+export DISPLAY=:5
+export GDK_BACKEND=x11
+unset WAYLAND_DISPLAY
+
+# Isolate the browser profile home dynamically
+VNC_HOME="/tmp/vnc_sandbox_user_$USER"
+mkdir -p "$VNC_HOME"
+export HOME="$VNC_HOME"
+
+autocutsel -s CLIPBOARD -fork
+autocutsel -s PRIMARY -fork
+openbox &
+
+exec dbus-run-session xdg-open "http://www.google.com"
+

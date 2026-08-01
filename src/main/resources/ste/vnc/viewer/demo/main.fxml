@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="ste.vnc.viewer.demo.VNCViewerFXController">
+    <top>
+        <MenuBar>
+            <Menu text="File">
+                <MenuItem text="Connect..." onAction="#onConnect" accelerator="Ctrl+O"/>
+                <SeparatorMenuItem/>
+                <MenuItem text="Close" onAction="#onCloseWindow" accelerator="Ctrl+W"/>
+                <SeparatorMenuItem/>
+                <MenuItem text="Exit" onAction="#onExit" accelerator="Ctrl+Q"/>
+            </Menu>
+            <Menu text="View">
+                <MenuItem text="Full Screen" onAction="#onToggleFullScreen" accelerator="F11"/>
+            </Menu>
+            <Menu text="Help">
+                <MenuItem text="About" onAction="#onAbout"/>
+            </Menu>
+        </MenuBar>
+    </top>
+    <center>
+        <SplitPane dividerPositions="0.25">
+            <TextArea fx:id="infoText" wrapText="true" editable="true"
+                      text="This area demonstrates clipboard integration between the local system and the remote VNC desktop.&#10;&#10;You can cut or copy text here and paste it into applications on the remote desktop using the standard paste shortcut (usually Ctrl+V).&#10;&#10;Likewise, text copied on the remote desktop is automatically transferred to the local clipboard and can be pasted here or into other local applications."/>
+            <ScrollPane fx:id="canvasScrollPane" style="-fx-focus-color: transparent; -fx-faint-focus-color: transparent;" pannable="false">
+                <content>
+                    <!-- Canvas will be injected by the controller -->
+                </content>
+            </ScrollPane>
+        </SplitPane>
+    </center>
+</BorderPane>
