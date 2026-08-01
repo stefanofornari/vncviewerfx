@@ -1,22 +1,12 @@
 package ste.vnc.viewer.demo;
 
 import javafx.application.Application;
-import javafx.application.Platform;
-import javafx.scene.input.Clipboard;
-import javafx.scene.input.ClipboardContent;
 import javafx.stage.Stage;
-import javafx.animation.Timeline;
-import javafx.animation.KeyFrame;
-import javafx.util.Duration;
 
-import com.tigervnc.rfb.Configuration;
 import com.tigervnc.rfb.LogWriter;
-import com.tigervnc.rfb.Security;
-import com.tigervnc.rfb.SecurityClient;
-import ste.vnc.viewer.CConnFX;
-import ste.vnc.viewer.EventBridge;
-import ste.vnc.viewer.KeyboardInputListener;
-import ste.vnc.viewer.MouseInputListener;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import ste.vnc.viewer.VNCCanvas;
 import ste.vnc.viewer.VNCConfiguration;
 
@@ -31,154 +21,34 @@ import ste.vnc.viewer.VNCConfiguration;
  */
 public class VNCViewerFX extends Application {
 
-    public final Param shared = new Param(true); // TODO:
+    private static final LogWriter vlog = new LogWriter(VNCViewerFX.class.getName());
 
-    private MainWindow viewport;
-    private CConnFX connection;
-    private VNCCanvas canvas;
-
-    // Last clipboard contents that originated from the server, used to
-    // avoid echoing clipboard updates straight back to the server.
-    private volatile String lastClipboardFromServer = "";
-    // Last clipboard contents we actually sent to the server from the
-    // local system clipboard.
-    private volatile String lastClipboardSent = "";
-
-    private static final LogWriter vlog = new LogWriter("VncViewerFx");
-
-    public MainWindow createViewport(String title, VNCCanvas canvas, CConnFX connection) {
-        MainWindow v = new MainWindow(title, canvas, connection);
-        this.viewport = v;
-        return v;
-    }
-
-    public void setServerClipboardText(String text) {
-        if (text == null) {
-            text = "";
-        }
-        lastClipboardFromServer = text;
-
-        final String clipText = text;
-        Runnable r = () -> {
-            ClipboardContent content = new ClipboardContent();
-            content.putString(clipText);
-            Clipboard.getSystemClipboard().setContent(content);
-        };
-
-        if (Platform.isFxApplicationThread()) {
-            r.run();
-        } else {
-            Platform.runLater(r);
-        }
-    }
-
-    public String getClipboard() {
-        Clipboard cb = Clipboard.getSystemClipboard();
-        if (cb != null && cb.hasString()) {
-            return cb.getString();
-        }
-        return "";
-    }
 
     @Override
     public void start(Stage primaryStage) {
 
+        //
+        // This initializes the Configuration object
+        //
         VNCConfiguration vncConfiguration = new  VNCConfiguration(getParameters());
 
-        // Enable viewer parameters so Configuration.setParam() can see them
-        Configuration.enableViewerParams();
-
-        // Restrict security to None only
-        SecurityClient.setDefaults();
-        Security.enabledSecTypes.clear();
-        Security.EnableSecType(Security.secTypeNone);
         try {
-            final EventBridge eventBridge = new EventBridge();
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("main.fxml"));
+            Parent root = loader.load();
 
-            // Create canvas and connection
-            canvas = new VNCCanvas(800, 600);
+            final VNCViewerFXController controller = loader.getController();
 
-            connection = new CConnFX(canvas.getImageRender(), () -> {
-                Platform.runLater(canvas::redraw);
-            });
+            Scene scene = new Scene(root, 1024, 768);
+            primaryStage.setTitle("VNC Viewer Demo");
+            primaryStage.setScene(scene);
 
-            canvas.mouseListener = new MouseInputListener(connection, eventBridge);
-            canvas.keyboardListener = new KeyboardInputListener(connection, eventBridge);
+            controller.stage = primaryStage;
 
-            // Start the RFB processing loop on a background thread so that
-            // incoming framebuffer updates are handled continuously.
-            Thread rfbThread = new Thread(() -> {
-                try {
-                    while (connection.isConnected()) {
-                        connection.processMsg();
-                    }
-                } catch (Exception e) {
-                    // Print full stack trace to help diagnose rendering/decoding issues.
-                    e.printStackTrace();
-                    vlog.error("RFB loop terminated: " + e.toString());
-                }
-            }, "VncViewerFx-RFB");
-            rfbThread.setDaemon(true);
-            rfbThread.start();
-
-            // Create and show viewport window
-            viewport = new MainWindow("127.0.0.1:5905", canvas, connection);
-            viewport.setOnClose(connection::close);
-
-            connection.canvasSize.addListener((o, ov, nv) -> {
-                Platform.runLater(() -> {
-                    canvas.resizeDesktop((int)nv.getWidth(), (int)nv.getHeight());
-                    viewport.resizeContent((int)nv.getWidth(), (int)nv.getHeight());
-                });
-            });
-            connection.clipboard.addListener((o, ov, nv) -> {
-                setServerClipboardText(nv);
-            });
-
-            viewport.setTitle("VNCViewerFX");
-
-            viewport.show();
-
-            // Start clipboard synchronization on the JavaFX application thread:
-            // poll the local clipboard periodically and push changes to the
-            // server as ClientCutText messages.
-            Timeline clipboardTimeline = new Timeline(
-                new KeyFrame(Duration.millis(500), ev -> {
-                    if (connection == null || !connection.isConnected()) {
-                        return;
-                    }
-
-                    try {
-                        String current = getClipboard();
-                        if (current == null) {
-                            current = "";
-                        }
-
-                        // Skip if unchanged or if this value just came from the server.
-                        if (!current.equals(lastClipboardSent)
-                            && !current.equals(lastClipboardFromServer)) {
-                            lastClipboardSent = current;
-
-                            int max = vncConfiguration.maxCutText.getValue();
-                            String toSend = current;
-                            if (max > 0 && toSend.length() > max) {
-                                toSend = toSend.substring(0, max);
-                            }
-
-                            vlog.debug("Sending ClientCutText, length=" + toSend.length());
-                            connection.writeClientCutText(toSend, toSend.length());
-                        }
-                    } catch (Exception ex) {
-                        vlog.error("Clipboard sync failed: " + ex.toString());
-                    }
-                })
-            );
-            clipboardTimeline.setCycleCount(Timeline.INDEFINITE);
-            clipboardTimeline.setDelay(Duration.millis(500));
-            clipboardTimeline.play();
+            primaryStage.show();
         } catch (Exception e) {
             vlog.error("Failed to start FX viewer: " + e.getMessage());
-            // If startup fails, just exit the application.
+            // If startup fails, just exit the application
+            e.printStackTrace();
             primaryStage.close();
         }
     }

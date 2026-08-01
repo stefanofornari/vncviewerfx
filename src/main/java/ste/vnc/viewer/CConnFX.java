@@ -28,6 +28,19 @@ import javafx.scene.input.ScrollEvent;
 
 public class CConnFX extends CConnection implements FdInStreamBlockCallback {
 
+    static final PixelFormat ARGB_PF = new PixelFormat(
+        32,          // bpp
+        24,          // depth
+        false,       // bigEndian
+        true,        // trueColour
+        255,         // redMax
+        255,         // greenMax
+        255,         // blueMax
+        16,          // redShift
+        8,           // greenShift
+        0            // blueShift
+    );
+
     public final ObjectProperty<Dimension2D> canvasSize = new SimpleObjectProperty<>();
     public final StringProperty clipboard = new SimpleStringProperty();
 
@@ -37,6 +50,7 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
     static final PixelFormat mediumColourPF = new PixelFormat(8, 8, false, false, 7, 7, 3, 0, 3, 6);
 
     private final ImageRender imageRender;
+    private final VNCCanvas canvas;
     private final Runnable redraw;
     private final EventBridge eventBridge = new EventBridge();
     private final Socket sock;
@@ -60,14 +74,16 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
     private int lastRequestedDesktopHeight = -1;
     private int pendingDesktopWidth = -1;
     private int pendingDesktopHeight = -1;
+    private int updateCount = 0;
 
-    public CConnFX(ImageRender imageRender, Runnable redraw) throws Exception {
-        this.imageRender = imageRender; // TODO: remove
+    public CConnFX(VNCCanvas canvas, Runnable redraw) throws Exception {
+        this.canvas = canvas;
+        this.imageRender = canvas.getImageRender();
         this.redraw = redraw;
 
         //
         // Hard-wire protocol options that we comfortable they work
-        // - No local cursor rendering (server renders cursor in framebuffer)
+        // - Server-rendered cursor in the framebuffer
         // - ZRLE encoding with lossless (no-JPEG) compression
         // - Compression level 0
         //
@@ -92,7 +108,7 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
 
     @Override
     public PixelFormat getPreferredPF() {
-        return fullColourPF;
+        return ARGB_PF;
     }
     public void connectionReady() {
     }
@@ -125,7 +141,8 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
     public void serverInit() {
         super.serverInit();
         serverPF = cp.pf();
-        vlog.info("Server pixel format: " + serverPF.print());
+        fullColourPF = ARGB_PF;
+        vlog.info("serverInit: serverPF=" + serverPF.print() + " fullColourPF=" + fullColourPF.print());
         // Resize the underlying pixel buffer immediately on the RFB thread so
         // that subsequent decoder calls (fillRect/imageRect) never overrun it.
         imageRender.setServerPF(serverPF);
@@ -134,9 +151,9 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
         // Update the JavaFX canvas and window geometry on the FX thread.
         Platform.runLater(() -> canvasSize.set(new Dimension2D(cp.width, cp.height)));
 
-        fullColourPF = serverPF;
         formatChange = true;
         encodingChange = true;
+        vlog.info("serverInit done, formatChange=" + formatChange + " encodingChange=" + encodingChange);
 
         requestNewUpdate();
         if (pendingPFChange) {
@@ -167,12 +184,18 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
 
     @Override
     public void framebufferUpdateStart() {
+        // Match TigerVNC's update pipeline: request the next update while the
+        // current one is being decoded.
         pendingUpdate = false;
         requestNewUpdate();
     }
 
     @Override
     public void framebufferUpdateEnd() {
+        updateCount++;
+        vlog.info("framebufferUpdateEnd #" + updateCount + " pendingUpdate=" + pendingUpdate
+            + " firstUpdate=" + firstUpdate + " continuousUpdates=" + continuousUpdates
+            + " cp.pf=" + cp.pf().print());
         redraw.run();
 
         if (firstUpdate) {
@@ -190,6 +213,7 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
             cp.setPF(pendingPF);
             pendingPFChange = false;
         }
+
     }
 
     @Override
@@ -210,6 +234,8 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
 
     @Override
     public void beginRect(Rect r, int encoding) {
+        vlog.info("beginRect #" + updateCount + ": " + r.tl.x + "," + r.tl.y + " " + r.width() + "x" + r.height()
+            + " encoding=" + encodingName(encoding));
         sock.inStream().startTiming();
     }
 
@@ -220,25 +246,37 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
 
     @Override
     public void fillRect(Rect r, int p) {
+        if (updateCount <= 5) {
+            vlog.info("fillRect #" + updateCount + ": " + r.tl.x + "," + r.tl.y + " " + r.width() + "x" + r.height()
+                + " p=0x" + Integer.toHexString(p));
+        }
         imageRender.fillRect(r.tl.x, r.tl.y, r.width(), r.height(), p);
     }
 
     @Override
     public void imageRect(Rect r, Object p) {
+        int[] src = (p instanceof int[]) ? (int[]) p : null;
+        if (updateCount <= 5 && src != null && src.length > 0) {
+            vlog.info("imageRect #" + updateCount + ": " + r.tl.x + "," + r.tl.y + " " + r.width() + "x" + r.height()
+                + " src[0]=0x" + Integer.toHexString(src[0])
+                + " len=" + src.length);
+        }
         imageRender.imageRect(r.tl.x, r.tl.y, r.width(), r.height(), p);
     }
 
     @Override
     public void copyRect(Rect r, int sx, int sy) {
+        if (updateCount <= 5) {
+            vlog.info("copyRect #" + updateCount + ": dest=" + r.tl.x + "," + r.tl.y + " " + r.width() + "x" + r.height()
+                + " src=" + sx + "," + sy);
+        }
         imageRender.copyRect(r.tl.x, r.tl.y, r.width(), r.height(), sx, sy);
     }
 
-    /* CHECK
     @Override
     public void setCursor(int width, int height, Point hotspot, int[] data, byte[] mask) {
         runOnFxThread(() -> canvas.setRemoteCursor(width, height, hotspot, data, mask));
     }
-    */
 
     @Override
     public void fence(int flags, int len, byte[] data) {
@@ -254,11 +292,10 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
             if ((flags & fenceTypes.fenceFlagSyncNext) != 0) {
                 supportsSyncFence = true;
 
-                if (cp.supportsContinuousUpdates) {
-                    vlog.info("Enabling continuous updates");
-                    continuousUpdates = true;
-                    writer().writeEnableContinuousUpdates(true, 0, 0, cp.width, cp.height);
-                }
+                // Process one incremental update at a time.  Continuous updates
+                // can generate cursor repaint rectangles faster than JavaFX can
+                // present them, leaving stale cursor regions on the canvas.
+                continuousUpdates = false;
             }
         } else {
             MemInStream memStream = new MemInStream(data, 0, len);
@@ -455,7 +492,8 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
                 encodings[nEncodings++] = Encodings.pseudoEncodingCompressLevel0 + cp.compressLevel;
             }
 
-            vlog.info("Sending encodings: " + nEncodings + " encodings");
+            vlog.info("Sending encodings: " + nEncodings + " encodings, ZRLE=true, noJPEG="
+                + cp.noJpeg + ", compressionLevel=" + cp.compressLevel);
             writer().writeSetEncodings(nEncodings, encodings);
             encodingChange = false;
         }
@@ -474,5 +512,14 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
             return;
         }
         writer().writeClientCutText(str, len);
+    }
+
+    private String encodingName(int encoding) {
+        switch (encoding) {
+            case Encodings.encodingRaw: return "Raw";
+            case Encodings.encodingZRLE: return "ZRLE";
+            case Encodings.encodingCopyRect: return "CopyRect";
+            default: return String.valueOf(encoding);
+        }
     }
 }

@@ -1,21 +1,22 @@
 package ste.vnc.viewer;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.ImageCursor;
 import javafx.scene.image.PixelFormat;
 import javafx.scene.image.PixelWriter;
-import javafx.scene.paint.Color;
 import javafx.scene.Cursor;
+import javafx.application.Platform;
 
 import com.tigervnc.rfb.LogWriter;
 
 /**
  * A JavaFX Canvas for displaying and interacting with a remote desktop via VNC.
  * <p>
- * This class is designed to be reusable as a pure JavaFX component and
- * can be embedded in your own applications. It exposes {@code public} fields
- * for mouse and keyboard listener assignment, allowing flexible integration.
+ * This class is designed to be reusable as a pure JavaFX component and can be
+ * embedded in your own applications. It exposes {@code public} fields for mouse
+ * and keyboard listener assignment, allowing flexible integration.
  * </p>
  * <h3>Usage Example</h3>
  * <pre>{@code
@@ -28,22 +29,23 @@ import com.tigervnc.rfb.LogWriter;
  * }
  * </pre>
  *
- * See {@link ste.vnc.viewer.demo.VNCViewerFX} for a ready-to-run demo application.
+ * See {@link ste.vnc.viewer.demo.VNCViewerFX} for a ready-to-run demo
+ * application.
  */
 public class VNCCanvas extends Canvas {
 
     public MouseInputListener mouseListener;
     public KeyboardInputListener keyboardListener;
     private final ImageRender imageRender;
-    private int desktopWidth = 800;
-    private int desktopHeight = 600;
+    private int desktopWidth = 1;
+    private int desktopHeight = 1;
 
     private static final LogWriter vlog = new LogWriter("DesktopCanvasFx");
     private boolean loggedFirstDraw = false;
+    private boolean desktopSizeReady = false;
+    private final AtomicBoolean redrawPending = new AtomicBoolean();
 
     public VNCCanvas(int width, int height) {
-        this.desktopWidth = width;
-        this.desktopHeight = height;
         this.imageRender = new ImageRender(width, height);
         setWidth(width);
         setHeight(height);
@@ -59,6 +61,14 @@ public class VNCCanvas extends Canvas {
         setOnKeyPressed(this::handleKeyPressed);
         setOnKeyReleased(this::handleKeyReleased);
         setOnKeyTyped(this::handleKeyTyped);
+        setOnMouseEntered(e -> requestFocus());
+
+        focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (!newVal && keyboardListener != null) {
+                keyboardListener.releaseAllKeys();
+            }
+        });
+
         redraw();
     }
 
@@ -71,6 +81,7 @@ public class VNCCanvas extends Canvas {
         setHeight(height);
         // Reset diagnostics so we log the new size on next redraw.
         loggedFirstDraw = false;
+        desktopSizeReady = true;
         redraw();
     }
 
@@ -79,9 +90,26 @@ public class VNCCanvas extends Canvas {
     }
 
     public void redraw() {
-        final GraphicsContext gc = getGraphicsContext2D();
-        gc.setFill(Color.BLACK);
-        gc.fillRect(0, 0, getWidth(), getHeight());
+        if (!Platform.isFxApplicationThread()) {
+            requestRedrawOnFxThread();
+            return;
+        }
+
+        redrawPending.set(false);
+        drawFramebuffer();
+    }
+
+    private void requestRedrawOnFxThread() {
+        if (!redrawPending.compareAndSet(false, true)) {
+            return;
+        }
+        Platform.runLater(this::redraw);
+    }
+
+    private void drawFramebuffer() {
+        if (!desktopSizeReady) {
+            return;
+        }
 
         final int w = desktopWidth, h = desktopHeight;
         if (w <= 0 || h <= 0) {
@@ -96,9 +124,12 @@ public class VNCCanvas extends Canvas {
         if (!loggedFirstDraw) {
             loggedFirstDraw = true;
             int sample = fb.length > 0 ? fb[0] : 0;
-            vlog.info("First redraw " + w + "x" + h + " sample pixel=0x" + Integer.toHexString(sample));
+            int center = fb.length > 0 ? fb[fb.length / 2] : 0;
+            vlog.info("redraw " + w + "x" + h + " sample=0x" + Integer.toHexString(sample)
+                + " center=0x" + Integer.toHexString(center));
         }
 
+        final GraphicsContext gc = getGraphicsContext2D();
         final PixelWriter pw = gc.getPixelWriter();
         pw.setPixels(
             0, 0, w, h,

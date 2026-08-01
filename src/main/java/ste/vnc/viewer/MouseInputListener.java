@@ -70,6 +70,7 @@ public class MouseInputListener {
     }
 
     public void onMouseMoved(MouseEvent e) {
+        System.out.println("mouse moved " + e);
         Point pos = eventBridge.mouseEventToVnc(e);
         int buttons = eventBridge.mouseButtonsFromEvent(e);
 
