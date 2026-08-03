@@ -82,3 +82,10 @@ Thumbs.db
 
 # node modules (if any)
 node_modules/
+
+log/
+
+# Runtime diagnostic output
+out*.txt
+server.txt
+/prompt for raw

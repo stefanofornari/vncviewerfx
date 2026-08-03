@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
+<?import ste.vnc.viewer.demo.RectangleTracePane?>
+
 
 <BorderPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="ste.vnc.viewer.demo.VNCViewerFXController">
     <top>
@@ -21,14 +23,17 @@
         </MenuBar>
     </top>
     <center>
-        <SplitPane dividerPositions="0.25">
-            <TextArea fx:id="infoText" wrapText="true" editable="true"
-                      text="This area demonstrates clipboard integration between the local system and the remote VNC desktop.&#10;&#10;You can cut or copy text here and paste it into applications on the remote desktop using the standard paste shortcut (usually Ctrl+V).&#10;&#10;Likewise, text copied on the remote desktop is automatically transferred to the local clipboard and can be pasted here or into other local applications."/>
-            <ScrollPane fx:id="canvasScrollPane" style="-fx-focus-color: transparent; -fx-faint-focus-color: transparent;" pannable="false">
+        <HBox>
+            <TextArea fx:id="infoText"
+                      wrapText="true" editable="true" prefWidth="200.0"
+                      text="This area demonstrates clipboard integration between the local system and the remote VNC desktop.&#10;&#10;You can cut or copy text here and paste it into applications on the remote desktop using the standard paste shortcut (usually Ctrl+V).&#10;&#10;Likewise, text copied on the remote desktop is automatically transferred to the local clipboard and can be pasted here or into other local applications."
+            />
+            <ScrollPane fx:id="canvasScrollPane" style="-fx-focus-color: transparent; -fx-faint-focus-color: transparent;" pannable="false" prefWidth="600.0" prefHeight="800.0">
                 <content>
                     <!-- Canvas will be injected by the controller -->
                 </content>
             </ScrollPane>
-        </SplitPane>
+            <RectangleTracePane fx:id="rectangleTracePane" minWidth="400.0" />
+        </HBox>
     </center>
 </BorderPane>

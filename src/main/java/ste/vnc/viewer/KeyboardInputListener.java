@@ -21,7 +21,6 @@ public class KeyboardInputListener {
     public void onKeyPressed(KeyEvent e) {
         // Prevent the scene/ScrollPane from treating space as a focus traversal
         // or scrolling shortcut when the canvas is acting as a remote desktop.
-        System.out.println("key " + e);
         if (e.getCode() == javafx.scene.input.KeyCode.SPACE) {
             e.consume();
         }

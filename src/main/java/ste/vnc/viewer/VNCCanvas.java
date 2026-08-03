@@ -7,6 +7,7 @@ import javafx.scene.ImageCursor;
 import javafx.scene.image.PixelFormat;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.Cursor;
+import javafx.scene.paint.Color;
 import javafx.application.Platform;
 
 import com.tigervnc.rfb.LogWriter;
@@ -44,6 +45,12 @@ public class VNCCanvas extends Canvas {
     private boolean loggedFirstDraw = false;
     private boolean desktopSizeReady = false;
     private final AtomicBoolean redrawPending = new AtomicBoolean();
+
+    private int overlayX;
+    private int overlayY;
+    private int overlayWidth;
+    private int overlayHeight;
+    private boolean overlayVisible;
 
     public VNCCanvas(int width, int height) {
         this.imageRender = new ImageRender(width, height);
@@ -125,7 +132,7 @@ public class VNCCanvas extends Canvas {
             loggedFirstDraw = true;
             int sample = fb.length > 0 ? fb[0] : 0;
             int center = fb.length > 0 ? fb[fb.length / 2] : 0;
-            vlog.info("redraw " + w + "x" + h + " sample=0x" + Integer.toHexString(sample)
+            vlog.debug("redraw " + w + "x" + h + " sample=0x" + Integer.toHexString(sample)
                 + " center=0x" + Integer.toHexString(center));
         }
 
@@ -136,6 +143,34 @@ public class VNCCanvas extends Canvas {
             PixelFormat.getIntArgbInstance(),
             fb, 0, w
         );
+
+        if (overlayVisible) {
+            gc.setStroke(Color.RED);
+            gc.setLineWidth(2);
+            gc.strokeRect(overlayX, overlayY, overlayWidth, overlayHeight);
+        }
+    }
+
+    /**
+     * Highlights a rectangle on top of the framebuffer with a red border.
+     * The highlight is repainted automatically on every framebuffer redraw.
+     * Pass a non-positive width or height to hide the highlight.
+     */
+    public void setSelectionOverlay(int x, int y, int width, int height) {
+        this.overlayX = x;
+        this.overlayY = y;
+        this.overlayWidth = Math.max(0, width);
+        this.overlayHeight = Math.max(0, height);
+        this.overlayVisible = overlayWidth > 0 && overlayHeight > 0;
+        drawFramebuffer();
+    }
+
+    /**
+     * Removes the selection highlight from the framebuffer.
+     */
+    public void clearSelectionOverlay() {
+        this.overlayVisible = false;
+        drawFramebuffer();
     }
 
     public ImageRender getImageRender() {

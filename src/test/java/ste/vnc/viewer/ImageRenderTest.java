@@ -1,0 +1,137 @@
+package ste.vnc.viewer;
+
+import com.tigervnc.rdr.MemInStream;
+import com.tigervnc.rfb.PixelFormat;
+import org.junit.Test;
+import static org.junit.Assert.*;
+
+/**
+ * Unit tests for {@link ImageRender}.
+ */
+public class ImageRenderTest {
+
+    @Test
+    public void resize_initialisesOpaqueBlack() {
+        ImageRender r = new ImageRender(10, 10);
+        int[] fb = r.getFramebuffer();
+        assertEquals(100, fb.length);
+        for (int pixel : fb) {
+            assertEquals("unset pixel must be opaque black", 0xff000000, pixel);
+        }
+    }
+
+    @Test
+    public void fillRect_forcesOpaqueAlpha() {
+        ImageRender r = new ImageRender(10, 10);
+        // 0x00abcdef has a transparent alpha byte, as produced by the raw
+        // decoder when the server sends 0x00 in the 32-bit padding byte.
+        r.fillRect(1, 2, 3, 4, 0x00abcdef);
+        int[] fb = r.getFramebuffer();
+        for (int y = 2; y < 6; y++) {
+            for (int x = 1; x < 4; x++) {
+                assertEquals("fillRect must make pixel opaque", 0xffabcdef, fb[y * 10 + x]);
+            }
+        }
+    }
+
+    @Test
+    public void imageRect_forcesOpaqueAlpha() {
+        ImageRender r = new ImageRender(10, 10);
+        int[] src = { 0x00112233, 0x00445566, 0x00778899, 0x00aabbcc };
+        r.imageRect(0, 0, 2, 2, src);
+        int[] fb = r.getFramebuffer();
+        assertEquals(0xff112233, fb[0]);
+        assertEquals(0xff445566, fb[1]);
+        assertEquals(0xff778899, fb[10]);
+        assertEquals(0xffaabbcc, fb[11]);
+    }
+
+    @Test
+    public void updatePixels_forcesOpaqueAlpha() {
+        ImageRender r = new ImageRender(10, 10);
+        int[] src = { 0x00ddeeff, 0x00112233 };
+        r.updatePixels(5, 5, 2, 1, src);
+        int[] fb = r.getFramebuffer();
+        assertEquals(0xffddeeff, fb[5 * 10 + 5]);
+        assertEquals(0xff112233, fb[5 * 10 + 6]);
+    }
+
+    @Test
+    public void copyRect_preservesOpaqueAlpha() {
+        ImageRender r = new ImageRender(10, 10);
+        r.fillRect(0, 0, 2, 2, 0x00aabbcc);
+        r.copyRect(2, 0, 2, 2, 0, 0);
+        int[] fb = r.getFramebuffer();
+        assertEquals(0xffaabbcc, fb[2]);
+        assertEquals(0xffaabbcc, fb[3]);
+        assertEquals(0xffaabbcc, fb[12]);
+        assertEquals(0xffaabbcc, fb[13]);
+    }
+
+    /**
+     * Simulates the path a Raw rectangle takes through the TigerVNC decoder:
+     * bytes on the wire are decoded with the current pixel format and then
+     * written into the JavaFX framebuffer. This confirms the ARGB mapping
+     * is what JavaFX's INT_ARGB pixel writer expects.
+     */
+    @Test
+    public void rawDecoderPixels_mapToJavaFxArgb() {
+        // rgb888 little-endian, matching the viewer's requested pixel format.
+        PixelFormat pf = new PixelFormat(32, 24, false, true, 255, 255, 255, 16, 8, 0);
+
+        // Four pixels: red, green, blue, white.
+        // For rgb888 little-endian the wire bytes are [B,G,R,P].
+        byte[] wire = {
+            0x00, 0x00, (byte) 0xff, 0x00,   // red
+            0x00, (byte) 0xff, 0x00, 0x00,   // green
+            (byte) 0xff, 0x00, 0x00, 0x00,   // blue
+            (byte) 0xff, (byte) 0xff, (byte) 0xff, 0x00 // white
+        };
+
+        MemInStream in = new MemInStream(wire, 0, wire.length);
+        int[] decoded = new int[4];
+        in.readPixels(decoded, decoded.length, pf.bpp / 8, pf.bigEndian);
+
+        ImageRender r = new ImageRender(2, 2);
+        r.setServerPF(pf);
+        r.imageRect(0, 0, 2, 2, decoded);
+
+        int[] fb = r.getFramebuffer();
+        assertEquals("red", 0xffff0000, fb[0]);
+        assertEquals("green", 0xff00ff00, fb[1]);
+        assertEquals("blue", 0xff0000ff, fb[2]);
+        assertEquals("white", 0xffffffff, fb[3]);
+    }
+
+    /**
+     * Same as above but for a BGR native pixel format, which the Swing viewer
+     * may request on some systems.
+     */
+    @Test
+    public void rawDecoderPixels_mapBgrToJavaFxArgb() {
+        PixelFormat pf = new PixelFormat(32, 24, false, true, 255, 255, 255, 0, 8, 16);
+
+        // Four pixels: red, green, blue, white.
+        // For bgr888 little-endian the wire bytes are [R,G,B,P].
+        byte[] wire = {
+            (byte) 0xff, 0x00, 0x00, 0x00,   // red
+            0x00, (byte) 0xff, 0x00, 0x00,   // green
+            0x00, 0x00, (byte) 0xff, 0x00,   // blue
+            (byte) 0xff, (byte) 0xff, (byte) 0xff, 0x00 // white
+        };
+
+        MemInStream in = new MemInStream(wire, 0, wire.length);
+        int[] decoded = new int[4];
+        in.readPixels(decoded, decoded.length, pf.bpp / 8, pf.bigEndian);
+
+        ImageRender r = new ImageRender(2, 2);
+        r.setServerPF(pf);
+        r.imageRect(0, 0, 2, 2, decoded);
+
+        int[] fb = r.getFramebuffer();
+        assertEquals("red", 0xffff0000, fb[0]);
+        assertEquals("green", 0xff00ff00, fb[1]);
+        assertEquals("blue", 0xff0000ff, fb[2]);
+        assertEquals("white", 0xffffffff, fb[3]);
+    }
+}

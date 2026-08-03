@@ -27,6 +27,8 @@ public class VNCViewerFXController {
     private TextArea infoText;
     @FXML
     private ScrollPane canvasScrollPane;
+    @FXML
+    private RectangleTracePane rectangleTracePane;
 
     private VNCCanvas canvas;
     private CConnFX connection;
@@ -91,9 +93,9 @@ public class VNCViewerFXController {
         final EventBridge eventBridge = new EventBridge();
 
         // Create canvas and connection
-        canvas = new VNCCanvas(800, 600);
+        canvas = new VNCCanvas(600, 800);
 
-        connection = new CConnFX(canvas, canvas::redraw);
+        connection = new CConnFX(canvas, canvas::redraw, rectangleTracePane);
 
         canvas.mouseListener = new MouseInputListener(connection, eventBridge);
         canvas.keyboardListener = new KeyboardInputListener(connection, eventBridge);
@@ -159,6 +161,14 @@ public class VNCViewerFXController {
         clipboardTimeline.play();
 
         canvasScrollPane.setContent(canvas);
+
+        rectangleTracePane.setOnSelectionChanged(selected -> {
+            if (selected == null) {
+                canvas.clearSelectionOverlay();
+            } else {
+                canvas.setSelectionOverlay(selected.x(), selected.y(), selected.width(), selected.height());
+            }
+        });
     }
 
     @FXML

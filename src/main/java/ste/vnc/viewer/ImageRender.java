@@ -1,5 +1,7 @@
 package ste.vnc.viewer;
 
+import java.util.Arrays;
+
 import com.tigervnc.rfb.LogWriter;
 
 /**
@@ -12,6 +14,7 @@ public class ImageRender {
   private int width;
   private int height;
   private int[] framebuffer;
+  private com.tigervnc.rfb.PixelFormat serverPF;
 
   public ImageRender(int width, int height) {
     resize(width, height);
@@ -21,12 +24,16 @@ public class ImageRender {
     this.width = width;
     this.height = height;
     this.framebuffer = new int[width * height];
+    // VNC has no alpha channel; the 32-bit wire format leaves the high byte
+    // as padding. Initialise the framebuffer as opaque so that JavaFX's
+    // INT_ARGB pixel writer treats unset pixels as solid black rather than
+    // transparent (which would show the canvas background).
+    Arrays.fill(framebuffer, 0xff000000);
   }
 
   public void setServerPF(com.tigervnc.rfb.PixelFormat pf) {
-    // Ignored for now; decoders already produce ARGB ints in their output buffers.
-    // But log it for debugging
-    vlog.info("setServerPF: " + pf.print());
+    this.serverPF = pf;
+    vlog.debug("setServerPF: " + pf.print());
   }
 
   public void setColourMapEntries(int firstColour, int nColours, int[] rgbs) {
@@ -40,10 +47,11 @@ public class ImageRender {
       vlog.info("fillRect out of bounds: x=" + x + " y=" + y + " w=" + w + " h=" + h + " (framebuffer=" + width + "x" + height + ")");
       return;
     }
+    int pixel = toJavaFxPixel(p);
     for (int ry = y; ry < y + h; ry++) {
       int base = ry * width + x;
       for (int rx = 0; rx < w; rx++) {
-        framebuffer[base + rx] = p;
+        framebuffer[base + rx] = pixel;
       }
     }
   }
@@ -62,7 +70,11 @@ public class ImageRender {
       return;
     }
     for (int row = 0; row < h; row++) {
-      System.arraycopy(src, row * w, framebuffer, (y + row) * width + x, w);
+      int dstOffset = (y + row) * width + x;
+      int srcOffset = row * w;
+      for (int col = 0; col < w; col++) {
+        framebuffer[dstOffset + col] = toJavaFxPixel(src[srcOffset + col]);
+      }
     }
   }
 
@@ -103,7 +115,11 @@ public class ImageRender {
   public synchronized void updatePixels(int x, int y, int w, int h, int[] pixels) {
     if (framebuffer == null) return;
     for (int row = 0; row < h; row++) {
-      System.arraycopy(pixels, row * w, framebuffer, (y + row) * width + x, w);
+      int dstOffset = (y + row) * width + x;
+      int srcOffset = row * w;
+      for (int col = 0; col < w; col++) {
+        framebuffer[dstOffset + col] = toJavaFxPixel(pixels[srcOffset + col]);
+      }
     }
   }
 
@@ -115,11 +131,45 @@ public class ImageRender {
     return copy;
   }
 
+  public synchronized int[] copyRegion(int x, int y, int w, int h) {
+    if (x < 0 || y < 0 || w < 0 || h < 0 || x + w > width || y + h > height) {
+      return new int[0];
+    }
+    int[] region = new int[w * h];
+    for (int row = 0; row < h; row++) {
+      System.arraycopy(framebuffer, (y + row) * width + x, region, row * w, w);
+    }
+    return region;
+  }
+
   public int getWidth() {
     return width;
   }
 
   public int getHeight() {
     return height;
+  }
+
+  /**
+   * Converts a pixel from the server-declared pixel format to JavaFX's
+   * {@code INT_ARGB}, forcing full opacity. This lets the viewer request the
+   * native display format (matching the Swing viewer) and correct for it here.
+   */
+  private int toJavaFxPixel(int p) {
+    if (serverPF == null || !serverPF.trueColour || serverPF.depth <= 8) {
+      // Fallback for missing or palette formats: just force opaque.
+      return p | 0xff000000;
+    }
+
+    int r = (p >>> serverPF.redShift)   & serverPF.redMax;
+    int g = (p >>> serverPF.greenShift) & serverPF.greenMax;
+    int b = (p >>> serverPF.blueShift)  & serverPF.blueMax;
+
+    // Scale component ranges up to 8 bits when the server uses fewer bits.
+    if (serverPF.redMax   != 255) r = r * 255 / serverPF.redMax;
+    if (serverPF.greenMax != 255) g = g * 255 / serverPF.greenMax;
+    if (serverPF.blueMax  != 255) b = b * 255 / serverPF.blueMax;
+
+    return 0xff000000 | (r << 16) | (g << 8) | b;
   }
 }
