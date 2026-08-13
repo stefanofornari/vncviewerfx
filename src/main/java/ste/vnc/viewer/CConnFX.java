@@ -9,7 +9,6 @@ import com.tigervnc.rdr.MemInStream;
 import com.tigervnc.rdr.MemOutStream;
 import com.tigervnc.rfb.CConnection;
 import com.tigervnc.rfb.Encodings;
-import com.tigervnc.rfb.Exception;
 import com.tigervnc.rfb.LogWriter;
 import com.tigervnc.rfb.PixelFormat;
 import com.tigervnc.rfb.Point;
@@ -17,16 +16,16 @@ import com.tigervnc.rfb.Rect;
 import com.tigervnc.rfb.Screen;
 import com.tigervnc.rfb.ScreenSet;
 import com.tigervnc.rfb.fenceTypes;
-import java.util.Arrays;
 import java.util.Iterator;
 import javafx.application.Platform;
+import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.geometry.Dimension2D;
 import javafx.scene.input.ScrollEvent;
-import ste.vnc.viewer.demo.RectangleTracePane;
 
 public class CConnFX extends CConnection implements FdInStreamBlockCallback {
 
@@ -38,18 +37,16 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
 
     public final ObjectProperty<Dimension2D> canvasSize = new SimpleObjectProperty<>();
     public final StringProperty clipboard = new SimpleStringProperty();
+    public final BooleanProperty connected = new SimpleBooleanProperty(true);
 
     private static final LogWriter vlog = new LogWriter("FxCConn");
     static final PixelFormat verylowColourPF = new PixelFormat(8, 3, false, true, 1, 1, 1, 2, 1, 0);
     static final PixelFormat lowColourPF = new PixelFormat(8, 6, false, true, 3, 3, 3, 4, 2, 0);
     static final PixelFormat mediumColourPF = new PixelFormat(8, 8, false, false, 7, 7, 3, 0, 3, 6);
 
-    private final ImageRender imageRender;
-    private final VNCCanvas canvas;
-    private final RectangleTracePane rectangleTrace;
-    private final Runnable redraw;
+    private final VNCPane canvas;
     private final EventBridge eventBridge = new EventBridge();
-    private final Socket sock;
+    private Socket sock;
     private boolean shuttingDown;
     private boolean pendingPFChange;
     private PixelFormat pendingPF;
@@ -73,11 +70,8 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
     private int updateCount = 0;
     private int currentEncoding = Encodings.encodingRaw;
 
-    public CConnFX(VNCCanvas canvas, Runnable redraw, RectangleTracePane rectangleTrace) throws Exception {
+    public CConnFX(final VNCPane canvas) {
         this.canvas = canvas;
-        this.imageRender = canvas.getImageRender();
-        this.redraw = redraw;
-        this.rectangleTrace = rectangleTrace;
 
         //
         // Hard-wire protocol options that we comfortable they work
@@ -101,20 +95,24 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
         currentEncoding = Encodings.encodingZRLE;
         vlog.info("Preferred encoding: " + Encodings.encodingName(currentEncoding));
 
-        sock = new TcpSocket("127.0.0.1", 5905);
+        canvas.connected.bind(connected);
+        try {
+            sock = new TcpSocket("127.0.0.1", 5905);
 
-        vlog.info("Accepted connection from " + sock.getPeerEndpoint());
+            vlog.info("Accepted connection from " + sock.getPeerEndpoint());
 
-        sock.inStream().setBlockCallback(this);
-        setStreams(sock.inStream(), sock.outStream());
-        initialiseProtocol();
+            sock.inStream().setBlockCallback(this);
+            setStreams(sock.inStream(), sock.outStream());
+            initialiseProtocol();
+        } catch (java.lang.Exception e) {
+            vlog.error("Failed to establish VNC connection: " + e.toString());
+            sock = null;
+        }
     }
 
     @Override
     public PixelFormat getPreferredPF() {
         return NATIVE_PF;
-    }
-    public void connectionReady() {
     }
 
     /**
@@ -145,11 +143,9 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
     }
 
     public void connectionLost() {
+        vlog.error("Connection to VNC server lost");
         shuttingDown = true;
-    }
-
-    public boolean isConnected() {
-        return !shuttingDown;
+        runOnFxThread(() -> connected.set(false));
     }
 
     public void pointerEvent(Point position, int buttonMask) {
@@ -171,15 +167,20 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
     @Override
     public void serverInit() {
         super.serverInit();
+
         serverPF = cp.pf();
         fullColourPF = NATIVE_PF;
-        vlog.info("serverInit: serverPF=" + serverPF.print() + " fullColourPF=" + fullColourPF.print());
-        // Resize the underlying pixel buffer immediately on the RFB thread so
-        // that subsequent decoder calls (fillRect/imageRect) never overrun it.
-        imageRender.setServerPF(fullColourPF);
-        imageRender.resize(cp.width, cp.height);
 
-        // Update the JavaFX canvas and window geometry on the FX thread.
+        vlog.info("serverInit: serverPF=" + serverPF.print() + " fullColourPF=" + fullColourPF.print());
+
+        canvas.getImageRender().setServerPF(fullColourPF);
+        canvas.getImageRender().resize(cp.width, cp.height);
+
+        runOnFxThread(() -> {
+            connected.set(true);
+            vlog.info("DEBUG: CConnFX.connected set to true in serverInit()");
+        });
+
         Platform.runLater(() -> canvasSize.set(new Dimension2D(cp.width, cp.height)));
 
         formatChange = true;
@@ -206,9 +207,6 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
         super.setExtendedDesktopSize(reason, result, w, h, layout);
         resizeFramebuffer();
 
-        // If we attempted to request a specific desktop size before the
-        // server signalled support, retry now that supportsSetDesktopSize
-        // has been enabled by the ExtendedDesktopSize message.
         if (cp.supportsSetDesktopSize && pendingDesktopWidth > 0 && pendingDesktopHeight > 0) {
             requestDesktopSize(pendingDesktopWidth, pendingDesktopHeight);
             pendingDesktopWidth = pendingDesktopHeight = -1;
@@ -219,8 +217,6 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
     public void framebufferUpdateStart() {
         updateCount++;
         vlog.debug("framebufferUpdateStart #" + updateCount);
-        // Match TigerVNC's update pipeline: request the next update while the
-        // current one is being decoded.
         pendingUpdate = false;
         requestNewUpdate();
     }
@@ -228,7 +224,7 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
     @Override
     public void framebufferUpdateEnd() {
         vlog.debug("framebufferUpdateEnd #" + updateCount);
-        redraw.run();
+        canvas.redraw();
 
         if (firstUpdate) {
             vlog.info("First framebuffer update " + cp.width + "x" + cp.height);
@@ -238,12 +234,11 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
             cp.setPF(pendingPF);
             pendingPFChange = false;
         }
-
     }
 
     @Override
     public void setColourMapEntries(int firstColour, int nColours, int[] rgbs) {
-        imageRender.setColourMapEntries(firstColour, nColours, rgbs);
+        canvas.getImageRender().setColourMapEntries(firstColour, nColours, rgbs);
     }
 
     @Override
@@ -254,28 +249,30 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
     @Override
     public void serverCutText(String str, int len) {
         vlog.debug("Received ServerCutText of length " + len);
-        Platform.runLater( () -> clipboard.set(str));
+        Platform.runLater(() -> clipboard.set(str));
     }
 
     @Override
     public void beginRect(Rect r, int encoding) {
         vlog.debug("beginRect #" + updateCount + ": " + r.tl.x + "," + r.tl.y + " " + r.width() + "x" + r.height()
             + " encoding=" + encodingName(encoding));
-        sock.inStream().startTiming();
+        if (sock != null) {
+            sock.inStream().startTiming();
+        }
     }
 
     @Override
     public void endRect(Rect r, int encoding) {
         vlog.debug("endRect #" + updateCount + ": " + r.tl.x + "," + r.tl.y + " " + r.width() + "x" + r.height());
-        sock.inStream().stopTiming();
+        if (sock != null) {
+            sock.inStream().stopTiming();
+        }
     }
 
     @Override
     public void fillRect(Rect r, int p) {
         vlog.debug("fillRect #" + updateCount + ": " + r.tl.x + "," + r.tl.y + " " + r.width() + "x" + r.height());
-        traceFill("wire-fill", r, p);
-        imageRender.fillRect(r.tl.x, r.tl.y, r.width(), r.height(), p);
-        traceRectangle("canvas-fill", r);
+        canvas.getImageRender().fillRect(r.tl.x, r.tl.y, r.width(), r.height(), p);
     }
 
     @Override
@@ -283,44 +280,12 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
         int[] src = (p instanceof int[]) ? (int[]) p : null;
         vlog.debug("imageRect #" + updateCount + ": " + r.tl.x + "," + r.tl.y + " "
             + r.width() + "x" + r.height() + " len=" + (src != null ? src.length : 0));
-
-        final String op = System.currentTimeMillis() + "-image";
-        if (src != null && src.length >= r.width() * r.height()) {
-            rectangleTrace.record(updateCount, op + "-wire", r.tl.x, r.tl.y,
-                r.width(), r.height(), Arrays.copyOf(src, r.width() * r.height()));
-        } else {
-            vlog.error("imageRect #%d: invalid buffer length %d < %d".formatted(updateCount,
-                src != null ? src.length : 0, r.width() * r.height()));
-        }
-        imageRender.imageRect(r.tl.x, r.tl.y, r.width(), r.height(), p);
-        traceRectangle(op + "-image", r);
+        canvas.getImageRender().imageRect(r.tl.x, r.tl.y, r.width(), r.height(), p);
     }
 
     @Override
     public void copyRect(Rect r, int sx, int sy) {
-        final String op = System.currentTimeMillis() + "-copy-source-";
-        rectangleTrace.record(updateCount, op + "wire", sx, sy, r.width(), r.height(),
-            imageRender.copyRegion(sx, sy, r.width(), r.height()));
-        imageRender.copyRect(r.tl.x, r.tl.y, r.width(), r.height(), sx, sy);
-        traceRectangle(op + "image", r);
-    }
-
-    private void traceFill(String operation, Rect rect, int pixel) {
-        int[] pixels = new int[rect.width() * rect.height()];
-        Arrays.fill(pixels, pixel);
-        rectangleTrace.record(updateCount, operation, rect.tl.x, rect.tl.y,
-            rect.width(), rect.height(), pixels);
-    }
-
-    private void traceRectangle(String operation, Rect rect) {
-        rectangleTrace.record(updateCount, operation, rect.tl.x, rect.tl.y,
-            rect.width(), rect.height(), imageRender.copyRegion(rect.tl.x, rect.tl.y,
-                rect.width(), rect.height()));
-    }
-
-    @Override
-    public void setCursor(int width, int height, Point hotspot, int[] data, byte[] mask) {
-        runOnFxThread(() -> canvas.setRemoteCursor(width, height, hotspot, data, mask));
+        canvas.getImageRender().copyRect(r.tl.x, r.tl.y, r.width(), r.height(), sx, sy);
     }
 
     @Override
@@ -336,10 +301,6 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
         if (len == 0) {
             if ((flags & fenceTypes.fenceFlagSyncNext) != 0) {
                 supportsSyncFence = true;
-
-                // Process one incremental update at a time.  Continuous updates
-                // can generate cursor repaint rectangles faster than JavaFX can
-                // present them, leaving stale cursor regions on the canvas.
                 continuousUpdates = false;
             }
         } else {
@@ -349,7 +310,7 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
             pf.read(memStream);
             vlog.info("Fence: new pixel format: " + pf.print());
 
-            imageRender.setServerPF(pf);
+            canvas.getImageRender().setServerPF(pf);
             cp.setPF(pf);
         }
     }
@@ -361,21 +322,22 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
                 wait(1);
             }
         } catch (InterruptedException e) {
-            throw new Exception(e.getMessage());
+            throw new com.tigervnc.rfb.Exception(e.getMessage());
         }
     }
 
     public void close() {
         shuttingDown = true;
+        runOnFxThread(() -> connected.set(false));
         try {
             if (sock != null) {
                 sock.shutdown();
             }
         } catch (java.lang.Exception e) {
-            throw new Exception(e.getMessage());
+            vlog.error("Error while closing VNC socket: " + e.toString());
+            throw new com.tigervnc.rfb.Exception(e.getMessage());
         }
     }
-
 
     public void writeWheelEvent(ScrollEvent ev) {
         if (state() != RFBSTATE_NORMAL || shuttingDown) {
@@ -388,12 +350,8 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
             return;
         }
 
-        // Map JavaFX scroll to VNC wheel buttons. We treat each event as at
-        // least one "click" in the appropriate direction so that both
-        // directions behave symmetrically.
-        int clicks = (int) Math.signum(dy);  // +1 or -1
-
-        int buttonMask = clicks < 0 ? 16 : 8; // down vs up
+        int clicks = (int) Math.signum(dy);
+        int buttonMask = clicks < 0 ? 16 : 8;
 
         Point p = eventBridge.screenToVnc(ev.getX(), ev.getY());
         writer().writePointerEvent(p, buttonMask);
@@ -430,7 +388,6 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
         if (layout.num_screens() == 0) {
             layout.add_screen(new Screen());
         } else if (layout.num_screens() != 1) {
-            // Collapse to a single screen, mirroring the Swing viewer logic.
             while (layout.num_screens() > 1) {
                 Iterator<Screen> iter = layout.screens.iterator();
                 Screen screen = iter.next();
@@ -453,10 +410,7 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
 
     private void resizeFramebuffer() {
         if (cp.width > 0 && cp.height > 0) {
-            // Resize the underlying pixel buffer on the RFB thread first
-            imageRender.resize(cp.width, cp.height);
-
-            // Update the JavaFX canvas on the FX thread
+            canvas.getImageRender().resize(cp.width, cp.height);
             Platform.runLater(() -> canvasSize.set(new Dimension2D(cp.width, cp.height)));
         }
 
@@ -473,7 +427,6 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
         if (formatChange) {
             PixelFormat pf;
 
-            /* Catch incorrect requestNewUpdate calls */
             assert (!pendingUpdate || supportsSyncFence);
 
             if (fullColour) {
@@ -553,5 +506,4 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
             default: return String.valueOf(encoding);
         }
     }
-
 }

@@ -7,13 +7,13 @@ import com.tigervnc.rfb.LogWriter;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import ste.vnc.viewer.VNCCanvas;
+import ste.vnc.viewer.VNCPane;
 import ste.vnc.viewer.VNCConfiguration;
 
 /**
  * Main JavaFX Application for running a VNC viewer demo.
  * <p>
- * This application demonstrates use of {@link VNCCanvas} as a JavaFX control
+ * This application demonstrates use of {@link VNCPane} as a JavaFX control
  * for displaying a remote VNC desktop. You can launch this class directly to try
  * the VNC viewer, or reference the {@code DesktopCanvas} in your own projects for
  * embedded VNC.
@@ -38,7 +38,8 @@ public class VNCViewerFX extends Application {
 
             final VNCViewerFXController controller = loader.getController();
 
-            Scene scene = new Scene(root, 1024, 768);
+            Scene scene = new Scene(root, 768, 1024);
+            primaryStage.setWidth(768); primaryStage.setHeight(1024);
             primaryStage.setTitle("VNC Viewer Demo");
             primaryStage.setScene(scene);
 

@@ -1,0 +1,18 @@
+.double-bordered-label {
+    -fx-background-color: rgba(0, 0, 0, 0.6);
+
+    /* Define two border layers: outer layer, inner layer */
+    -fx-border-color: #4272f7, #4272f7;
+    -fx-border-style: solid, solid;
+    -fx-border-width: 2px, 2px;
+
+    /* 0px for outer border, 5px shift inward for inner border (creates the gap) */
+    -fx-border-insets: 0, 5px;
+
+    /* Padding keeps text from touching the inner border */
+    -fx-padding: 12px;
+
+    -fx-font-size: 28px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #4272f7;
+}

@@ -1,16 +1,20 @@
 package ste.vnc.viewer;
 
 import java.util.concurrent.atomic.AtomicBoolean;
+import javafx.application.Platform;
+import javafx.scene.Cursor;
+import javafx.scene.ImageCursor;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.ImageCursor;
 import javafx.scene.image.PixelFormat;
 import javafx.scene.image.PixelWriter;
-import javafx.scene.Cursor;
+import javafx.scene.image.WritableImage;
+import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
-import javafx.application.Platform;
 
 import com.tigervnc.rfb.LogWriter;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 
 /**
  * A JavaFX Canvas for displaying and interacting with a remote desktop via VNC.
@@ -33,15 +37,18 @@ import com.tigervnc.rfb.LogWriter;
  * See {@link ste.vnc.viewer.demo.VNCViewerFX} for a ready-to-run demo
  * application.
  */
-public class VNCCanvas extends Canvas {
+public class VNCPane extends Pane {
 
     public MouseInputListener mouseListener;
     public KeyboardInputListener keyboardListener;
+    private final Canvas canvas;
+    private final DisconnectionPane disconnectionPane;
     private final ImageRender imageRender;
     private int desktopWidth = 1;
     private int desktopHeight = 1;
 
-    private static final LogWriter vlog = new LogWriter("DesktopCanvasFx");
+    private final LogWriter vlog = new LogWriter("DesktopCanvasFx");
+
     private boolean loggedFirstDraw = false;
     private boolean desktopSizeReady = false;
     private final AtomicBoolean redrawPending = new AtomicBoolean();
@@ -52,23 +59,34 @@ public class VNCCanvas extends Canvas {
     private int overlayHeight;
     private boolean overlayVisible;
 
-    public VNCCanvas(int width, int height) {
+    public final BooleanProperty connected = new SimpleBooleanProperty(false);
+
+
+    public VNCPane(int width, int height) {
         this.imageRender = new ImageRender(width, height);
-        setWidth(width);
-        setHeight(height);
-        setFocusTraversable(true);
+        this.canvas = new Canvas(width, height);
+        this.disconnectionPane = new DisconnectionPane();
+        this.disconnectionPane.resize(width, height);
+
+        setPrefSize(width, height);
+        getChildren().addAll(canvas, disconnectionPane);
+
+        // Bind disconnection pane visibility to connected property (inverted)
+        disconnectionPane.visibleProperty().bind(connected.not());
+
+        canvas.setFocusTraversable(true);
         // Hide the local OS pointer over the canvas so only the remote
         // cursor rendered by the server is visible.
-        setCursor(Cursor.NONE);
-        setOnMousePressed(this::handleMousePressed);
-        setOnMouseReleased(this::handleMouseReleased);
-        setOnMouseMoved(this::handleMouseMoved);
-        setOnMouseDragged(this::handleMouseDragged);
-        setOnScroll(this::handleScroll);
-        setOnKeyPressed(this::handleKeyPressed);
-        setOnKeyReleased(this::handleKeyReleased);
-        setOnKeyTyped(this::handleKeyTyped);
-        setOnMouseEntered(e -> requestFocus());
+        canvas.setCursor(Cursor.NONE);
+        canvas.setOnMousePressed(this::handleMousePressed);
+        canvas.setOnMouseReleased(this::handleMouseReleased);
+        canvas.setOnMouseMoved(this::handleMouseMoved);
+        canvas.setOnMouseDragged(this::handleMouseDragged);
+        canvas.setOnScroll(this::handleScroll);
+        canvas.setOnKeyPressed(this::handleKeyPressed);
+        canvas.setOnKeyReleased(this::handleKeyReleased);
+        canvas.setOnKeyTyped(this::handleKeyTyped);
+        canvas.setOnMouseEntered(e -> requestFocus());
 
         focusedProperty().addListener((obs, oldVal, newVal) -> {
             if (!newVal && keyboardListener != null) {
@@ -76,16 +94,35 @@ public class VNCCanvas extends Canvas {
             }
         });
 
+        // Visibility is now handled by the binding to disconnectionPane.visibleProperty()
+        connected.addListener((o, ov, nv) -> {
+            // When disconnected, request a redraw to ensure clean state
+            if (!nv) {
+                redraw();
+            }
+        });
+
         redraw();
+    }
+
+    @Override
+    public boolean isResizable() {
+        return true;
+    }
+
+    @Override
+    public void resize(double width, double height) {
+        super.resize(width, height);
+        resizeDesktop((int)width, (int)height);
     }
 
     public void resizeDesktop(int width, int height) {
         this.desktopWidth = width;
         this.desktopHeight = height;
-        // Framebuffer size is managed by ImageRenderFx.resize() on the RFB thread;
-        // here we only adjust the visible canvas.
-        setWidth(width);
-        setHeight(height);
+        canvas.setWidth(width);
+        canvas.setHeight(height);
+        disconnectionPane.resize(width, height);
+        setPrefSize(width, height);
         // Reset diagnostics so we log the new size on next redraw.
         loggedFirstDraw = false;
         desktopSizeReady = true;
@@ -93,6 +130,9 @@ public class VNCCanvas extends Canvas {
     }
 
     public void updateFramebuffer(int x, int y, int w, int h, int[] pixels) {
+        if (!connected.get()) {
+            return;
+        }
         imageRender.updatePixels(x, y, w, h, pixels);
     }
 
@@ -123,6 +163,8 @@ public class VNCCanvas extends Canvas {
             return;
         }
 
+        final GraphicsContext gc = canvas.getGraphicsContext2D();
+
         final int[] fb = imageRender.getFramebuffer();
         if (fb == null || fb.length < w * h) {
             return;
@@ -136,7 +178,6 @@ public class VNCCanvas extends Canvas {
                 + " center=0x" + Integer.toHexString(center));
         }
 
-        final GraphicsContext gc = getGraphicsContext2D();
         final PixelWriter pw = gc.getPixelWriter();
         pw.setPixels(
             0, 0, w, h,
@@ -151,11 +192,6 @@ public class VNCCanvas extends Canvas {
         }
     }
 
-    /**
-     * Highlights a rectangle on top of the framebuffer with a red border.
-     * The highlight is repainted automatically on every framebuffer redraw.
-     * Pass a non-positive width or height to hide the highlight.
-     */
     public void setSelectionOverlay(int x, int y, int width, int height) {
         this.overlayX = x;
         this.overlayY = y;
@@ -165,9 +201,6 @@ public class VNCCanvas extends Canvas {
         drawFramebuffer();
     }
 
-    /**
-     * Removes the selection highlight from the framebuffer.
-     */
     public void clearSelectionOverlay() {
         this.overlayVisible = false;
         drawFramebuffer();
@@ -185,16 +218,13 @@ public class VNCCanvas extends Canvas {
         return desktopHeight;
     }
 
-    // Renders the server-provided cursor shape as a JavaFX custom cursor.
     public void setRemoteCursor(int width, int height, com.tigervnc.rfb.Point hotspot,
         int[] data, byte[] mask) {
         if (width <= 0 || height <= 0 || data == null || mask == null) {
             return;
         }
 
-        // Build ARGB image from cursor pixels and mask.
-        // The cursor data from readPixels is already in ARGB format (0xAARRGGBB).
-        javafx.scene.image.WritableImage img = new javafx.scene.image.WritableImage(width, height);
+        WritableImage img = new WritableImage(width, height);
         PixelWriter pw = img.getPixelWriter();
 
         int maskBytesPerRow = (width + 7) / 8;
@@ -211,54 +241,54 @@ public class VNCCanvas extends Canvas {
         double hx = hotspot != null ? hotspot.x : 0;
         double hy = hotspot != null ? hotspot.y : 0;
         ImageCursor cursor = new ImageCursor(img, hx, hy);
-        setCursor(cursor);
+        canvas.setCursor(cursor);
     }
 
     public void handleMousePressed(javafx.scene.input.MouseEvent e) {
         requestFocus();
-        if (mouseListener != null) {
+        if ((mouseListener != null) && (connected.get())) {
             mouseListener.onMousePressed(e);
         }
     }
 
     public void handleMouseReleased(javafx.scene.input.MouseEvent e) {
-        if (mouseListener != null) {
+        if ((mouseListener != null) && (connected.get())) {
             mouseListener.onMouseReleased(e);
         }
     }
 
     public void handleMouseMoved(javafx.scene.input.MouseEvent e) {
-        if (mouseListener != null) {
+        if ((mouseListener != null) && (connected.get())) {
             mouseListener.onMouseMoved(e);
         }
     }
 
     public void handleMouseDragged(javafx.scene.input.MouseEvent e) {
-        if (mouseListener != null) {
+        if ((mouseListener != null) && (connected.get())) {
             mouseListener.onMouseMoved(e);
         }
     }
 
     public void handleScroll(javafx.scene.input.ScrollEvent e) {
-        if (mouseListener != null) {
+        if ((mouseListener != null) && (connected.get())) {
             mouseListener.onMouseScroll(e);
         }
     }
 
     public void handleKeyPressed(javafx.scene.input.KeyEvent e) {
-        if (keyboardListener != null) {
+        if ((keyboardListener != null) && (connected.get())) {
             keyboardListener.onKeyPressed(e);
         }
     }
 
     public void handleKeyReleased(javafx.scene.input.KeyEvent e) {
-        if (keyboardListener != null) {
+        if ((keyboardListener != null) && (connected.get())) {
             keyboardListener.onKeyReleased(e);
         }
     }
 
     public void handleKeyTyped(javafx.scene.input.KeyEvent e) {
-        if (keyboardListener != null) {
+        if ((keyboardListener != null) && (connected.get())) {
             keyboardListener.onKeyTyped(e);
         }
     }

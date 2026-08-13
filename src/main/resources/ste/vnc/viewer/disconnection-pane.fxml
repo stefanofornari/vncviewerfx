@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.canvas.Canvas?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.layout.StackPane?>
+
+<Pane fx:id="rootPane" stylesheets="@disconnection-panel.css" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="ste.vnc.viewer.DisconnectionPaneController">
+    <StackPane fx:id="backgroundPane" style="-fx-background-color: black;">
+        <Canvas fx:id="scrambleCanvas" />
+        <Label fx:id="message" styleClass="double-bordered-label" text="Connection to VNC server lost" />
+    </StackPane>
+</Pane>

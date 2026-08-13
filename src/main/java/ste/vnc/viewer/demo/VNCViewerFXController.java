@@ -19,8 +19,12 @@ import ste.vnc.viewer.CConnFX;
 import ste.vnc.viewer.EventBridge;
 import ste.vnc.viewer.KeyboardInputListener;
 import ste.vnc.viewer.MouseInputListener;
-import ste.vnc.viewer.VNCCanvas;
+import ste.vnc.viewer.VNCPane;
 
+
+//
+// TODO: the RFB loop should be started by the component, not in demo app
+//
 public class VNCViewerFXController {
 
     @FXML
@@ -30,7 +34,7 @@ public class VNCViewerFXController {
     @FXML
     private RectangleTracePane rectangleTracePane;
 
-    private VNCCanvas canvas;
+    private VNCPane canvas;
     private CConnFX connection;
     private Runnable onClose;
 
@@ -46,15 +50,6 @@ public class VNCViewerFXController {
     private static final LogWriter logger = new LogWriter(VNCViewerFXController.class.getName());
 
     static {
-        /* TODO
-        final Level l = Logger.getLogger(VNCViewerFXController.class.getName()).getLevel();
-        logger.setLevel(
-            switch(l.getName()) {
-                case "INFO" -> 30;
-                case "ERROR" -> 0;
-                default -> 100;
-            }
-        );*/
         logger.setLevel(100);
     }
 
@@ -62,7 +57,7 @@ public class VNCViewerFXController {
     public void initialize() {
         // Set up scroll pane viewport bounds listener for desktop resize
         canvasScrollPane.viewportBoundsProperty().addListener((obs, oldVal, newVal) -> {
-            if (connection != null && newVal != null) {
+            if (connection != null && connection.connected.get() && newVal != null) {
                 int w = (int) Math.round(newVal.getWidth());
                 int h = (int) Math.round(newVal.getHeight());
                 connection.requestDesktopSize(w, h);
@@ -93,9 +88,9 @@ public class VNCViewerFXController {
         final EventBridge eventBridge = new EventBridge();
 
         // Create canvas and connection
-        canvas = new VNCCanvas(600, 800);
+        canvas = new VNCPane(600, 800);
 
-        connection = new CConnFX(canvas, canvas::redraw, rectangleTracePane);
+        connection = new CConnFX(canvas);
 
         canvas.mouseListener = new MouseInputListener(connection, eventBridge);
         canvas.keyboardListener = new KeyboardInputListener(connection, eventBridge);
@@ -104,13 +99,12 @@ public class VNCViewerFXController {
         // incoming framebuffer updates are handled continuously.
         Thread rfbThread = new Thread(() -> {
             try {
-                while (connection.isConnected()) {
+                while (connection.connected.get()) {
                     connection.processMsg();
                 }
             } catch (Exception e) {
-                // Print full stack trace to help diagnose rendering/decoding issues.
-                e.printStackTrace();
                 logger.error("RFB loop terminated: " + e.toString());
+                connection.connected.set(false);
             }
         }, "VncViewerFx-RFB");
         rfbThread.setDaemon(true);
@@ -131,7 +125,7 @@ public class VNCViewerFXController {
         // server as ClientCutText messages.
         Timeline clipboardTimeline = new Timeline(
             new KeyFrame(Duration.millis(500), ev -> {
-                if (connection == null || !connection.isConnected()) {
+                if (connection == null || !connection.connected.get()) {
                     return;
                 }
 
@@ -162,13 +156,15 @@ public class VNCViewerFXController {
 
         canvasScrollPane.setContent(canvas);
 
-        rectangleTracePane.setOnSelectionChanged(selected -> {
-            if (selected == null) {
-                canvas.clearSelectionOverlay();
-            } else {
-                canvas.setSelectionOverlay(selected.x(), selected.y(), selected.width(), selected.height());
-            }
-        });
+        if (rectangleTracePane != null) {
+            rectangleTracePane.setOnSelectionChanged(selected -> {
+                if (selected == null) {
+                    canvas.clearSelectionOverlay();
+                } else {
+                    canvas.setSelectionOverlay(selected.x(), selected.y(), selected.width(), selected.height());
+                }
+            });
+        }
     }
 
     @FXML
@@ -231,5 +227,4 @@ public class VNCViewerFXController {
         }
         return "";
     }
-
 }

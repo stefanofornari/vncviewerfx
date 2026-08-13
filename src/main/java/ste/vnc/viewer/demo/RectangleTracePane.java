@@ -9,7 +9,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.control.Button;
@@ -76,8 +75,8 @@ public class RectangleTracePane extends BorderPane {
         }
     }
 
-    public void record(int update, String operation, int x, int y, int width, int height,
-        int[] pixels) {
+    public void record(int update, String operation, int x, int y, int width, int height, int[] pixels) {
+        /*
         if (pixels == null || pixels.length != width * height) {
             return;
         }
@@ -85,6 +84,7 @@ public class RectangleTracePane extends BorderPane {
         RectangleEntry entry = new RectangleEntry(id, update, operation, x, y, width, height, pixels);
         logWriter.execute(() -> writeBinary(entry));
         Platform.runLater(() -> entries.getItems().add(entry));
+        */
     }
 
     private void show(RectangleEntry entry) {
