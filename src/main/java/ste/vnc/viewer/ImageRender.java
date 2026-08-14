@@ -35,21 +35,25 @@ public class ImageRender {
     Arrays.fill(framebuffer, 0xff000000);
     // Mark the entire framebuffer as dirty on resize
     dirty.clear();
+    UpdateLogger.logResize(width, height);
     if (width > 0 && height > 0) {
       dirty.add(new Rect(0, 0, width, height));
     }
   }
 
   public synchronized void beginUpdate() {
+    UpdateLogger.logBeginUpdate();
     dirty.clear();
   }
 
   public synchronized void markDirty(int x, int y, int w, int h) {
+    UpdateLogger.logMarkDirty(x, y, w, h);
     dirty.add(new Rect(x, y, x + w, y + h));
   }
 
   public synchronized List<Rect> drainDirty() {
     List<Rect> result = new ArrayList<>(dirty);
+    UpdateLogger.logDrainDirty(result);
     dirty.clear();
     return result;
   }
@@ -68,6 +72,7 @@ public class ImageRender {
     // Bounds check
     if (x < 0 || y < 0 || x + w > width || y + h > height) {
       vlog.info("fillRect out of bounds: x=" + x + " y=" + y + " w=" + w + " h=" + h + " (framebuffer=" + width + "x" + height + ")");
+      UpdateLogger.logError("fillRect out of bounds: (" + x + "," + y + "," + w + "x" + h + ")");
       return;
     }
     int pixel = toJavaFxPixel(p);

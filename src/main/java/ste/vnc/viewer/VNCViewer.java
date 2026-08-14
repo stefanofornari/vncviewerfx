@@ -121,6 +121,7 @@ public class VNCViewer extends ScrollPane {
         // Reset diagnostics so we log the new size on next redraw.
         loggedFirstDraw = false;
         desktopSizeReady = true;
+        UpdateLogger.logResize(width, height);
         redraw();
     }
 
@@ -163,6 +164,10 @@ public class VNCViewer extends ScrollPane {
 
         // Draw dirty regions incrementally
         List<com.tigervnc.rfb.Rect> dirtyRegions = imageRender.drainDirty();
+        
+        // Log the draw operation
+        UpdateLogger.logDrawFramebuffer(!dirtyRegions.isEmpty(), dirtyRegions.size(),
+            imageRender.getWidth(), imageRender.getHeight(), w, h);
         
         // If there are no dirty regions, it means we need a full redraw
         // (e.g., called from resize, overlay change, or window exposure)
