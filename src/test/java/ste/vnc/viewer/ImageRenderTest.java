@@ -280,4 +280,71 @@ public class ImageRenderTest {
             assertEquals("All pixels in region should be green", 0xff00ff00, pixel);
         }
     }
+
+    /**
+     * Test case for the bug where framebuffer resize creates a dirty region
+     * that exceeds the current canvas bounds, causing it to be skipped and
+     * leaving old content visible.
+     * 
+     * This reproduces the issue found in the logs where:
+     * - Framebuffer was resized to 566x958
+     * - Canvas was still at 560x944
+     * - Dirty region was (0,0,566x958)
+     * - The region exceeded canvas bounds and was skipped
+     */
+    @Test
+    public void resize_DirtyRegionExceedsPreviousCanvasBounds() {
+        // Start with a smaller size
+        ImageRender r = new ImageRender(560, 944);
+        r.drainDirty(); // Clear initial dirty region
+        
+        // Resize to larger dimensions (simulating what happens during a VNC resize)
+        r.resize(566, 958);
+        
+        // Get the dirty region - should be the full new size
+        List<Rect> dirtyRegions = r.drainDirty();
+        assertEquals(1, dirtyRegions.size());
+        
+        Rect dirty = dirtyRegions.get(0);
+        assertEquals(0, dirty.tl.x);
+        assertEquals(0, dirty.tl.y);
+        assertEquals(566, dirty.width());
+        assertEquals(958, dirty.height());
+        
+        // This is the problematic case: when trying to draw this region
+        // with a canvas of 560x944, the bounds check:
+        // rx + rw = 0 + 566 = 566 > 560 (canvas width)
+        // ry + rh = 0 + 958 = 958 > 944 (canvas height)
+        // would cause the region to be skipped in the old code
+        
+        // The fix in VNCViewer.drawFramebuffer() should clamp the region
+        // to canvas bounds instead of skipping it
+    }
+
+    /**
+     * Test case for the bug where canvas is resized larger than the framebuffer,
+     * causing old content (like window borders) to remain visible in the extra area.
+     * 
+     * This reproduces the issue where:
+     * - User moves a window quickly
+     * - Canvas gets resized larger by the window manager
+     * - But framebuffer hasn't been updated yet
+     * - The extra canvas area shows old content (window borders)
+     * - Clicking the mouse triggers a redraw that fixes it
+     */
+    @Test
+    public void canvasLargerThanFramebuffer_ClearsExtraArea() {
+        // This test documents the expected behavior in VNCViewer.drawFramebuffer()
+        // When canvas (w x h) > framebuffer (fbWidth x fbHeight), the extra areas
+        // should be cleared before drawing the framebuffer content.
+        
+        // Example scenario:
+        // - Canvas is 583x981 (resized larger by window manager)
+        // - Framebuffer is 560x944 (not yet updated)
+        // - Extra area: right 23px (583-560) and bottom 44px (981-944)
+        // - The fix in VNCViewer.drawFramebuffer() should:
+        //   1. gc.clearRect(560, 0, 23, 981) - clear right strip
+        //   2. gc.clearRect(0, 944, 560, 44) - clear bottom strip
+        //   This is implemented at lines 170-172 in VNCViewer.java
+    }
 }

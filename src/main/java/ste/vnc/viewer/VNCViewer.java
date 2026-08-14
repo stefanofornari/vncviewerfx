@@ -162,20 +162,28 @@ public class VNCViewer extends ScrollPane {
         final GraphicsContext gc = controller.canvas.getGraphicsContext2D();
         final PixelWriter pw = gc.getPixelWriter();
 
+        final int fbWidth = imageRender.getWidth();
+        final int fbHeight = imageRender.getHeight();
+
+        // If canvas is larger than framebuffer, clear the extra area first
+        // This prevents showing old content in the border areas when canvas is resized larger
+        if (w > fbWidth || h > fbHeight) {
+            gc.clearRect(fbWidth, 0, w - fbWidth, h);
+            gc.clearRect(0, fbHeight, fbWidth, h - fbHeight);
+        }
+
         // Draw dirty regions incrementally
         List<com.tigervnc.rfb.Rect> dirtyRegions = imageRender.drainDirty();
         
         // Log the draw operation
         UpdateLogger.logDrawFramebuffer(!dirtyRegions.isEmpty(), dirtyRegions.size(),
-            imageRender.getWidth(), imageRender.getHeight(), w, h);
+            fbWidth, fbHeight, w, h);
         
         // If there are no dirty regions, it means we need a full redraw
         // (e.g., called from resize, overlay change, or window exposure)
         if (dirtyRegions.isEmpty()) {
             // Full redraw - get entire framebuffer
             final int[] fb = imageRender.getFramebuffer();
-            final int fbWidth = imageRender.getWidth();
-            final int fbHeight = imageRender.getHeight();
             
             if (fb == null || fb.length < fbWidth * fbHeight) {
                 if (overlayVisible) {
@@ -194,8 +202,12 @@ public class VNCViewer extends ScrollPane {
                     + " center=0x" + Integer.toHexString(center));
             }
 
-            // Draw the framebuffer at its actual size
-            pw.setPixels(0, 0, fbWidth, fbHeight,
+            // Clamp draw dimensions to canvas size in case framebuffer is larger
+            int drawWidth = Math.min(fbWidth, w);
+            int drawHeight = Math.min(fbHeight, h);
+            
+            // Draw the framebuffer at its actual size (or clamped to canvas size)
+            pw.setPixels(0, 0, drawWidth, drawHeight,
                 PixelFormat.getIntArgbInstance(), fb, 0, fbWidth);
             
             if (overlayVisible) {
@@ -224,24 +236,23 @@ public class VNCViewer extends ScrollPane {
             int rw = r.width();
             int rh = r.height();
             
-            // Bounds check against the canvas size
-            if (rx < 0 || ry < 0 || rx + rw > w || ry + rh > h) {
-                vlog.info("Skipping dirty region out of canvas bounds: x=" + rx + " y=" + ry + " w=" + rw + " h=" + rh + " (canvas=" + w + "x" + h + ")");
+            // Clamp the region to both framebuffer and canvas bounds
+            // This handles the case where framebuffer was resized larger than canvas
+            int clampedX = Math.max(0, rx);
+            int clampedY = Math.max(0, ry);
+            int clampedW = Math.min(rw, Math.min(fbWidth - clampedX, w - clampedX));
+            int clampedH = Math.min(rh, Math.min(fbHeight - clampedY, h - clampedY));
+            
+            // Skip if the clamped region has zero or negative dimensions
+            if (clampedW <= 0 || clampedH <= 0) {
+                vlog.info("Skipping dirty region after clamping: original=(" + rx + "," + ry + "," + rw + "x" + rh + ") clamped=(" + clampedX + "," + clampedY + "," + clampedW + "x" + clampedH + ")");
                 continue;
             }
             
-            // Also check against the framebuffer size
-            int fbWidth = imageRender.getWidth();
-            int fbHeight = imageRender.getHeight();
-            if (rx < 0 || ry < 0 || rx + rw > fbWidth || ry + rh > fbHeight) {
-                vlog.info("Skipping dirty region out of framebuffer bounds: x=" + rx + " y=" + ry + " w=" + rw + " h=" + rh + " (framebuffer=" + fbWidth + "x" + fbHeight + ")");
-                continue;
-            }
-            
-            int[] region = imageRender.copyRegion(rx, ry, rw, rh);
-            if (region != null && region.length >= rw * rh) {
-                pw.setPixels(rx, ry, rw, rh,
-                    PixelFormat.getIntArgbInstance(), region, 0, rw);
+            int[] region = imageRender.copyRegion(clampedX, clampedY, clampedW, clampedH);
+            if (region != null && region.length >= clampedW * clampedH) {
+                pw.setPixels(clampedX, clampedY, clampedW, clampedH,
+                    PixelFormat.getIntArgbInstance(), region, 0, clampedW);
             }
         }
 
