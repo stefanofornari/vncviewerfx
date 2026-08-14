@@ -9,6 +9,7 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import ste.vnc.viewer.VNCViewer;
 import ste.vnc.viewer.VNCConfiguration;
+import ste.vnc.viewer.UpdateLogger;
 
 /**
  * Main JavaFX Application for running a VNC viewer demo.
@@ -26,6 +27,8 @@ public class VNCViewerDemo extends Application {
 
     @Override
     public void start(Stage primaryStage) {
+        // Start update logging to debug dirty region tracking
+        UpdateLogger.startSession();
 
         //
         // This initializes the Configuration object
@@ -46,7 +49,13 @@ public class VNCViewerDemo extends Application {
             controller.stage = primaryStage;
 
             primaryStage.show();
+            
+            // Stop logging when the application is closed
+            primaryStage.setOnCloseRequest(event -> {
+                UpdateLogger.stopSession();
+            });
         } catch (Exception e) {
+            UpdateLogger.stopSession();
             vlog.error("Failed to start FX viewer: " + e.getMessage());
             // If startup fails, just exit the application
             e.printStackTrace();
