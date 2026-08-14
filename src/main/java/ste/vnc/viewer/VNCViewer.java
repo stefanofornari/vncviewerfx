@@ -105,6 +105,19 @@ public class VNCViewer extends ScrollPane {
         controller.canvas.setOnKeyReleased(this::handleKeyReleased);
         controller.canvas.setOnKeyTyped(this::handleKeyTyped);
         controller.canvas.setOnMouseEntered(e -> requestFocus());
+        
+        // Add listeners to trigger redraw when canvas size changes
+        // (e.g., when window is moved or layout changes)
+        controller.canvas.widthProperty().addListener((obs, oldW, newW) -> {
+            if (newW.doubleValue() != oldW.doubleValue()) {
+                redraw();
+            }
+        });
+        controller.canvas.heightProperty().addListener((obs, oldH, newH) -> {
+            if (newH.doubleValue() != oldH.doubleValue()) {
+                redraw();
+            }
+        });
     }
 
     public void resizeDesktop(int width, int height) {
@@ -202,6 +215,9 @@ public class VNCViewer extends ScrollPane {
                     + " center=0x" + Integer.toHexString(center));
             }
 
+            // Clear the entire canvas first to remove any old content
+            gc.clearRect(0, 0, w, h);
+            
             // Clamp draw dimensions to canvas size in case framebuffer is larger
             int drawWidth = Math.min(fbWidth, w);
             int drawHeight = Math.min(fbHeight, h);
