@@ -235,6 +235,7 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
         updateCount++;
         vlog.debug("framebufferUpdateStart #" + updateCount);
         pendingUpdate = false;
+        viewer.imageRender().beginUpdate();
         requestNewUpdate();
     }
 

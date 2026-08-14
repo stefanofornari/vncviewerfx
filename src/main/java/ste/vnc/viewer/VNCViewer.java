@@ -1,5 +1,6 @@
 package ste.vnc.viewer;
 
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javafx.application.Platform;
 import javafx.scene.Cursor;
@@ -113,6 +114,10 @@ public class VNCViewer extends ScrollPane {
         controller.canvas.setHeight(height);
         controller.disconnectionPane.resize(width, height);
         setPrefSize(width, height);
+        // Also resize the image render to ensure it matches the canvas
+        if (imageRender.getWidth() != width || imageRender.getHeight() != height) {
+            imageRender.resize(width, height);
+        }
         // Reset diagnostics so we log the new size on next redraw.
         loggedFirstDraw = false;
         desktopSizeReady = true;
@@ -154,26 +159,86 @@ public class VNCViewer extends ScrollPane {
         }
 
         final GraphicsContext gc = controller.canvas.getGraphicsContext2D();
+        final PixelWriter pw = gc.getPixelWriter();
 
-        final int[] fb = imageRender.getFramebuffer();
-        if (fb == null || fb.length < w * h) {
+        // Draw dirty regions incrementally
+        List<com.tigervnc.rfb.Rect> dirtyRegions = imageRender.drainDirty();
+        
+        // If there are no dirty regions, it means we need a full redraw
+        // (e.g., called from resize, overlay change, or window exposure)
+        if (dirtyRegions.isEmpty()) {
+            // Full redraw - get entire framebuffer
+            final int[] fb = imageRender.getFramebuffer();
+            final int fbWidth = imageRender.getWidth();
+            final int fbHeight = imageRender.getHeight();
+            
+            if (fb == null || fb.length < fbWidth * fbHeight) {
+                if (overlayVisible) {
+                    gc.setStroke(Color.RED);
+                    gc.setLineWidth(2);
+                    gc.strokeRect(overlayX, overlayY, overlayWidth, overlayHeight);
+                }
+                return;
+            }
+
+            if (!loggedFirstDraw) {
+                loggedFirstDraw = true;
+                int sample = fb.length > 0 ? fb[0] : 0;
+                int center = fb.length > 0 ? fb[fb.length / 2] : 0;
+                vlog.debug("redraw " + w + "x" + h + " sample=0x" + Integer.toHexString(sample)
+                    + " center=0x" + Integer.toHexString(center));
+            }
+
+            // Draw the framebuffer at its actual size
+            pw.setPixels(0, 0, fbWidth, fbHeight,
+                PixelFormat.getIntArgbInstance(), fb, 0, fbWidth);
+            
+            if (overlayVisible) {
+                gc.setStroke(Color.RED);
+                gc.setLineWidth(2);
+                gc.strokeRect(overlayX, overlayY, overlayWidth, overlayHeight);
+            }
             return;
         }
 
-        if (!loggedFirstDraw) {
+        // Log first draw with the first dirty region's data
+        if (!loggedFirstDraw && !dirtyRegions.isEmpty()) {
             loggedFirstDraw = true;
+            com.tigervnc.rfb.Rect first = dirtyRegions.get(0);
+            int[] fb = imageRender.getFramebuffer();
             int sample = fb.length > 0 ? fb[0] : 0;
             int center = fb.length > 0 ? fb[fb.length / 2] : 0;
             vlog.debug("redraw " + w + "x" + h + " sample=0x" + Integer.toHexString(sample)
                 + " center=0x" + Integer.toHexString(center));
         }
 
-        final PixelWriter pw = gc.getPixelWriter();
-        pw.setPixels(
-            0, 0, w, h,
-            PixelFormat.getIntArgbInstance(),
-            fb, 0, w
-        );
+        // Draw each dirty region
+        for (com.tigervnc.rfb.Rect r : dirtyRegions) {
+            int rx = r.tl.x;
+            int ry = r.tl.y;
+            int rw = r.width();
+            int rh = r.height();
+            
+            // Bounds check against the canvas size
+            if (rx < 0 || ry < 0 || rx + rw > w || ry + rh > h) {
+                vlog.info("Skipping dirty region out of canvas bounds: x=" + rx + " y=" + ry + " w=" + rw + " h=" + rh + " (canvas=" + w + "x" + h + ")");
+                continue;
+            }
+            
+            // Also check against the framebuffer size
+            int fbWidth = imageRender.getWidth();
+            int fbHeight = imageRender.getHeight();
+            if (rx < 0 || ry < 0 || rx + rw > fbWidth || ry + rh > fbHeight) {
+                vlog.info("Skipping dirty region out of framebuffer bounds: x=" + rx + " y=" + ry + " w=" + rw + " h=" + rh + " (framebuffer=" + fbWidth + "x" + fbHeight + ")");
+                continue;
+            }
+            
+            int[] region = imageRender.copyRegion(rx, ry, rw, rh);
+            if (region != null && region.length >= rw * rh) {
+                pw.setPixels(rx, ry, rw, rh,
+                    PixelFormat.getIntArgbInstance(), region, 0, rw);
+            }
+        }
 
         if (overlayVisible) {
             gc.setStroke(Color.RED);

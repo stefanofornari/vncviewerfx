@@ -1,8 +1,11 @@
 package ste.vnc.viewer;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import com.tigervnc.rfb.LogWriter;
+import com.tigervnc.rfb.Rect;
 
 /**
  * Minimal framebuffer that can be used to actually render the incoming rectangles
@@ -15,6 +18,7 @@ public class ImageRender {
   private int height;
   private int[] framebuffer;
   private com.tigervnc.rfb.PixelFormat serverPF;
+  private final List<Rect> dirty = new ArrayList<>();
 
   public ImageRender(int width, int height) {
     resize(width, height);
@@ -29,6 +33,25 @@ public class ImageRender {
     // INT_ARGB pixel writer treats unset pixels as solid black rather than
     // transparent (which would show the canvas background).
     Arrays.fill(framebuffer, 0xff000000);
+    // Mark the entire framebuffer as dirty on resize
+    dirty.clear();
+    if (width > 0 && height > 0) {
+      dirty.add(new Rect(0, 0, width, height));
+    }
+  }
+
+  public synchronized void beginUpdate() {
+    dirty.clear();
+  }
+
+  public synchronized void markDirty(int x, int y, int w, int h) {
+    dirty.add(new Rect(x, y, x + w, y + h));
+  }
+
+  public synchronized List<Rect> drainDirty() {
+    List<Rect> result = new ArrayList<>(dirty);
+    dirty.clear();
+    return result;
   }
 
   public void setServerPF(com.tigervnc.rfb.PixelFormat pf) {
@@ -54,6 +77,7 @@ public class ImageRender {
         framebuffer[base + rx] = pixel;
       }
     }
+    markDirty(x, y, w, h);
   }
 
   public synchronized void imageRect(int x, int y, int w, int h, Object p) {
@@ -76,6 +100,7 @@ public class ImageRender {
         framebuffer[dstOffset + col] = toJavaFxPixel(src[srcOffset + col]);
       }
     }
+    markDirty(x, y, w, h);
   }
 
   public synchronized void copyRect(int x, int y, int w, int h, int sx, int sy) {
@@ -106,6 +131,7 @@ public class ImageRender {
       src += inc;
       dest += inc;
     }
+    markDirty(x, y, w, h);
   }
 
   public void setCursor(int width, int height, com.tigervnc.rfb.Point hotspot, int[] data, byte[] mask) {
@@ -121,6 +147,7 @@ public class ImageRender {
         framebuffer[dstOffset + col] = toJavaFxPixel(pixels[srcOffset + col]);
       }
     }
+    markDirty(x, y, w, h);
   }
 
   public synchronized int[] getFramebuffer() {

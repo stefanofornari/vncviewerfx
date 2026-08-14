@@ -2,7 +2,9 @@ package ste.vnc.viewer;
 
 import com.tigervnc.rdr.MemInStream;
 import com.tigervnc.rfb.PixelFormat;
+import com.tigervnc.rfb.Rect;
 import org.junit.Test;
+import java.util.List;
 import static org.junit.Assert.*;
 
 /**
@@ -133,5 +135,149 @@ public class ImageRenderTest {
         assertEquals("green", 0xff00ff00, fb[1]);
         assertEquals("blue", 0xff0000ff, fb[2]);
         assertEquals("white", 0xffffffff, fb[3]);
+    }
+
+    @Test
+    public void resize_marksEntireFramebufferAsDirty() {
+        ImageRender r = new ImageRender(10, 10);
+        List<Rect> dirty = r.drainDirty();
+        assertEquals("resize should mark entire framebuffer as dirty", 1, dirty.size());
+        Rect rect = dirty.get(0);
+        assertEquals(0, rect.tl.x);
+        assertEquals(0, rect.tl.y);
+        assertEquals(10, rect.width());
+        assertEquals(10, rect.height());
+    }
+
+    @Test
+    public void beginUpdate_clearsDirtyRegions() {
+        ImageRender r = new ImageRender(10, 10);
+        r.drainDirty(); // Clear initial dirty from resize
+        
+        r.beginUpdate();
+        r.fillRect(1, 1, 5, 5, 0x00ff0000);
+        r.beginUpdate();
+        
+        List<Rect> dirty = r.drainDirty();
+        assertEquals("beginUpdate should clear dirty regions", 0, dirty.size());
+    }
+
+    @Test
+    public void fillRect_marksRegionAsDirty() {
+        ImageRender r = new ImageRender(10, 10);
+        r.drainDirty(); // Clear initial dirty from resize
+        
+        r.beginUpdate();
+        r.fillRect(2, 3, 4, 5, 0x00ff0000);
+        
+        List<Rect> dirty = r.drainDirty();
+        assertEquals("fillRect should mark region as dirty", 1, dirty.size());
+        Rect rect = dirty.get(0);
+        assertEquals(2, rect.tl.x);
+        assertEquals(3, rect.tl.y);
+        assertEquals(4, rect.width());
+        assertEquals(5, rect.height());
+    }
+
+    @Test
+    public void imageRect_marksRegionAsDirty() {
+        ImageRender r = new ImageRender(10, 10);
+        r.drainDirty(); // Clear initial dirty from resize
+        
+        r.beginUpdate();
+        int[] pixels = new int[4 * 3];
+        java.util.Arrays.fill(pixels, 0x00112233);
+        r.imageRect(1, 2, 4, 3, pixels);
+        
+        List<Rect> dirty = r.drainDirty();
+        assertEquals("imageRect should mark region as dirty", 1, dirty.size());
+        Rect rect = dirty.get(0);
+        assertEquals(1, rect.tl.x);
+        assertEquals(2, rect.tl.y);
+        assertEquals(4, rect.width());
+        assertEquals(3, rect.height());
+    }
+
+    @Test
+    public void copyRect_marksRegionAsDirty() {
+        ImageRender r = new ImageRender(10, 10);
+        r.drainDirty(); // Clear initial dirty from resize
+        
+        // First fill a region to copy from
+        r.beginUpdate();
+        r.fillRect(0, 0, 5, 5, 0x00ff0000);
+        r.drainDirty(); // Clear the dirty from fillRect
+        
+        r.beginUpdate();
+        r.copyRect(3, 3, 2, 2, 0, 0);
+        
+        List<Rect> dirty = r.drainDirty();
+        assertEquals("copyRect should mark region as dirty", 1, dirty.size());
+        Rect rect = dirty.get(0);
+        assertEquals(3, rect.tl.x);
+        assertEquals(3, rect.tl.y);
+        assertEquals(2, rect.width());
+        assertEquals(2, rect.height());
+    }
+
+    @Test
+    public void updatePixels_marksRegionAsDirty() {
+        ImageRender r = new ImageRender(10, 10);
+        r.drainDirty(); // Clear initial dirty from resize
+        
+        r.beginUpdate();
+        int[] pixels = {0x00112233, 0x00445566, 0x00778899, 0x00aabbcc};
+        r.updatePixels(5, 5, 2, 2, pixels);
+        
+        List<Rect> dirty = r.drainDirty();
+        assertEquals("updatePixels should mark region as dirty", 1, dirty.size());
+        Rect rect = dirty.get(0);
+        assertEquals(5, rect.tl.x);
+        assertEquals(5, rect.tl.y);
+        assertEquals(2, rect.width());
+        assertEquals(2, rect.height());
+    }
+
+    @Test
+    public void multipleOperations_accumulateDirtyRegions() {
+        ImageRender r = new ImageRender(20, 20);
+        r.drainDirty(); // Clear initial dirty from resize
+        
+        r.beginUpdate();
+        r.fillRect(0, 0, 5, 5, 0x00ff0000);
+        r.imageRect(10, 10, 3, 3, new int[9]);
+        r.copyRect(15, 15, 2, 2, 0, 0);
+        
+        List<Rect> dirty = r.drainDirty();
+        assertEquals("multiple operations should accumulate dirty regions", 3, dirty.size());
+    }
+
+    @Test
+    public void drainDirty_clearsDirtyList() {
+        ImageRender r = new ImageRender(10, 10);
+        r.drainDirty(); // Clear initial dirty from resize
+        
+        r.beginUpdate();
+        r.fillRect(1, 1, 5, 5, 0x00ff0000);
+        
+        List<Rect> firstDrain = r.drainDirty();
+        assertEquals(1, firstDrain.size());
+        
+        List<Rect> secondDrain = r.drainDirty();
+        assertEquals("drainDirty should clear the list", 0, secondDrain.size());
+    }
+
+    @Test
+    public void copyRegion_returnsCorrectSubregion() {
+        ImageRender r = new ImageRender(10, 10);
+        r.fillRect(0, 0, 10, 10, 0x00ff0000);
+        r.fillRect(2, 2, 4, 4, 0x0000ff00);
+        
+        int[] region = r.copyRegion(2, 2, 4, 4);
+        assertEquals(4 * 4, region.length);
+        // All pixels in the region should be green (0xff00ff00 after forcing opaque)
+        for (int pixel : region) {
+            assertEquals("All pixels in region should be green", 0xff00ff00, pixel);
+        }
     }
 }
