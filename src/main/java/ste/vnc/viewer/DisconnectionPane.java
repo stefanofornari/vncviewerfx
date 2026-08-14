@@ -1,18 +1,18 @@
 package ste.vnc.viewer;
 
 import javafx.fxml.FXMLLoader;
-import javafx.scene.layout.Pane;
+import javafx.scene.layout.StackPane;
 
 import java.io.IOException;
 
 /**
  * A JavaFX pane that displays an animated disconnection overlay.
  * <p>
- * This pane shows a black background with an animated scramble effect
- * and a centered message indicating connection loss.
+ * This pane shows a black background with an animated scramble effect and a
+ * centered message indicating connection loss.
  * </p>
  */
-public class DisconnectionPane extends Pane {
+public class DisconnectionPane extends StackPane {
 
     public final DisconnectionPaneController controller;
 
@@ -23,25 +23,25 @@ public class DisconnectionPane extends Pane {
         getStyleClass().add("disconnection-pane");
 
         FXMLLoader loader = new FXMLLoader(
-            getClass().getResource("/ste/vnc/viewer/disconnection-pane.fxml")
+            getClass().getResource("/ste/vnc/viewer/DisconnectionPane.fxml")
         );
+        loader.setRoot(this);
 
+        setVisible(false); // Initially hidden
         try {
-            Pane root = loader.load();
+            loader.load();
             controller = loader.getController();
-            getChildren().add(root);
-            setVisible(false); // Initially hidden
-
-            visibleProperty().addListener((obs, was, is) -> {
-                if (is) {
-                    controller.startScramble();
-                } else {
-                    controller.stopScramble();
-                }
-            });
         } catch (IOException e) {
             throw new RuntimeException("Failed to load disconnection pane FXML", e);
         }
+
+        visibleProperty().addListener((o, was, is) -> {
+            if (is) {
+                controller.startScramble();
+            } else {
+                controller.stopScramble();
+            }
+        });
     }
 
     @Override
@@ -57,5 +57,4 @@ public class DisconnectionPane extends Pane {
             controller.scrambleCanvas.setHeight(height);
         }
     }
-
 }

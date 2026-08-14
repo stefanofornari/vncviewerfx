@@ -37,11 +37,7 @@ public class KeyboardInputListener {
         downKeySym.put(e.getCode(), keysym);
 
         if (connection != null) {
-            try {
-                connection.keyEvent(keysym, true);
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
+            connection.keyEvent(keysym, true);
         }
 
         e.consume();
@@ -54,11 +50,7 @@ public class KeyboardInputListener {
         }
 
         if (connection != null) {
-            try {
-                connection.keyEvent(keysym, false);
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
+            connection.keyEvent(keysym, false);
         }
 
         e.consume();
@@ -80,12 +72,8 @@ public class KeyboardInputListener {
 
         int keysym = 0x20; // XK_space
         if (connection != null) {
-            try {
-                connection.keyEvent(keysym, true);
-                connection.keyEvent(keysym, false);
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
+            connection.keyEvent(keysym, true);
+            connection.keyEvent(keysym, false);
         }
 
         e.consume();
@@ -97,11 +85,7 @@ public class KeyboardInputListener {
     public void releaseAllKeys() {
         if (connection != null) {
             for (int keysym : downKeySym.values()) {
-                try {
-                    connection.keyEvent(keysym, false);
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                }
+                connection.keyEvent(keysym, false);
             }
         }
         downKeySym.clear();

@@ -8,15 +8,15 @@ import org.junit.jupiter.api.Test;
 import org.testfx.framework.junit5.ApplicationTest;
 
 /**
- * Unit and UI tests for {@link VNCPane} connection/disconnected behaviour.
+ * Unit and UI tests for {@link VNCViewer} connection/disconnected behaviour.
  */
-class VNCCanvasTest extends ApplicationTest {
+class VNCViewerTest extends ApplicationTest {
 
-    private VNCPane canvas;
+    private VNCViewer canvas;
 
     @Override
     public void start(Stage stage) {
-        canvas = new VNCPane(100, 100);
+        canvas = new VNCViewer();
         canvas.resizeDesktop(100, 100);
         stage.setScene(new javafx.scene.Scene(canvas));
         stage.show();
@@ -25,7 +25,7 @@ class VNCCanvasTest extends ApplicationTest {
     @Test
     void initially_disconnected_and_overlay_visible() {
         then(canvas.connected.get()).isFalse();
-        
+
         // The disconnection pane should be visible when not connected
         Node disconnectionPane = lookup(".disconnection-pane").query();
         then(disconnectionPane).isNotNull();
@@ -42,7 +42,7 @@ class VNCCanvasTest extends ApplicationTest {
 
         // then
         then(canvas.connected.get()).isTrue();
-        
+
         // The disconnection pane should be hidden when connected
         Node disconnectionPane = lookup(".disconnection-pane").query();
         then(disconnectionPane.isVisible()).isFalse();
@@ -59,7 +59,7 @@ class VNCCanvasTest extends ApplicationTest {
 
         // then
         then(canvas.connected.get()).isFalse();
-        
+
         // The disconnection pane should be visible when disconnected
         Node disconnectionPane = lookup(".disconnection-pane").query();
         then(disconnectionPane.isVisible()).isTrue();

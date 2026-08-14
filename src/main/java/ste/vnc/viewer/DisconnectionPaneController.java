@@ -5,7 +5,6 @@ import javafx.fxml.FXML;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Label;
-import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 
@@ -15,13 +14,11 @@ import javafx.scene.paint.Color;
 public class DisconnectionPaneController {
 
     @FXML
-    public Pane rootPane;
-    @FXML
-    public StackPane backgroundPane;
+    public StackPane rootPane;
+
     @FXML
     public Canvas scrambleCanvas;
-    //@FXML
-    //public Text message;
+
     @FXML
     public Label message;
 
@@ -42,14 +39,6 @@ public class DisconnectionPaneController {
                 }
             }
         };
-
-        rootPane.visibleProperty().addListener((obs, wasVisible, isVisible) -> {
-            if (isVisible) {
-                startScramble();
-            } else {
-                stopScramble();
-            }
-        });
     }
 
     /**

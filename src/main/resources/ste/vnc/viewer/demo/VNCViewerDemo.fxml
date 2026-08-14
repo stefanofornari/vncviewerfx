@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<?import ste.vnc.viewer.VNCPane?>
+<?import ste.vnc.viewer.VNCViewer?>
 
 
-<BorderPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="ste.vnc.viewer.demo.VNCViewerFXController">
+<BorderPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="ste.vnc.viewer.demo.VNCViewerDemoController">
     <top>
         <MenuBar>
             <Menu text="File">
@@ -26,15 +26,7 @@
                       wrapText="true" editable="true" prefWidth="200.0"
                       text="This area demonstrates clipboard integration between the local system and the remote VNC desktop.&#10;&#10;You can cut or copy text here and paste it into applications on the remote desktop using the standard paste shortcut (usually Ctrl+V).&#10;&#10;Likewise, text copied on the remote desktop is automatically transferred to the local clipboard and can be pasted here or into other local applications."
             />
-            <ScrollPane fx:id="canvasScrollPane" HBox.hgrow="ALWAYS"
-                        style="-fx-focus-color: transparent; -fx-faint-focus-color: transparent;"
-                        pannable="false"
-                        maxWidth="Infinity" maxHeight="Infinity"
-                        fitToWidth="true" fitToHeight="true">
-                <content>
-                    <!--VNCPane></VNCPane-->
-                </content>
-            </ScrollPane>
+            <VNCViewer fx:id="viewer"></VNCViewer>
             <!--RectangleTracePane fx:id="rectangleTracePane" minWidth="400.0" /-->
         </HBox>
     </center>

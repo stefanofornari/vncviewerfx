@@ -92,7 +92,5 @@ public class MouseInputListener {
 
     public void onMouseScroll(ScrollEvent e) {
         connection.writeWheelEvent(e);
-        // Map wheel to VNC button 4 (up) and 5 (down): bits 3 and 4.
-        Point pos = new Point(lastX, lastY);
     }
 }

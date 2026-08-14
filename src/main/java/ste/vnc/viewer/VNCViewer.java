@@ -4,17 +4,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import javafx.application.Platform;
 import javafx.scene.Cursor;
 import javafx.scene.ImageCursor;
-import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.PixelFormat;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
-import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 
 import com.tigervnc.rfb.LogWriter;
+import java.io.IOException;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.control.ScrollPane;
 
 /**
  * A JavaFX Canvas for displaying and interacting with a remote desktop via VNC.
@@ -37,13 +38,12 @@ import javafx.beans.property.SimpleBooleanProperty;
  * See {@link ste.vnc.viewer.demo.VNCViewerFX} for a ready-to-run demo
  * application.
  */
-public class VNCPane extends Pane {
+public class VNCViewer extends ScrollPane {
 
     public MouseInputListener mouseListener;
     public KeyboardInputListener keyboardListener;
-    private final Canvas canvas;
-    private final DisconnectionPane disconnectionPane;
     private final ImageRender imageRender;
+    private final VNCViewerController controller;
     private int desktopWidth = 1;
     private int desktopHeight = 1;
 
@@ -62,31 +62,20 @@ public class VNCPane extends Pane {
     public final BooleanProperty connected = new SimpleBooleanProperty(false);
 
 
-    public VNCPane(int width, int height) {
-        this.imageRender = new ImageRender(width, height);
-        this.canvas = new Canvas(width, height);
-        this.disconnectionPane = new DisconnectionPane();
-        this.disconnectionPane.resize(width, height);
+    public VNCViewer() {
+        this.imageRender = new ImageRender(0, 0);
 
-        setPrefSize(width, height);
-        getChildren().addAll(canvas, disconnectionPane);
+        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("VNCViewer.fxml"));
+        fxmlLoader.setRoot(this);
+        // Do NOT set controller manually here; FXML instantiates it via fx:controller
 
-        // Bind disconnection pane visibility to connected property (inverted)
-        disconnectionPane.visibleProperty().bind(connected.not());
-
-        canvas.setFocusTraversable(true);
-        // Hide the local OS pointer over the canvas so only the remote
-        // cursor rendered by the server is visible.
-        canvas.setCursor(Cursor.NONE);
-        canvas.setOnMousePressed(this::handleMousePressed);
-        canvas.setOnMouseReleased(this::handleMouseReleased);
-        canvas.setOnMouseMoved(this::handleMouseMoved);
-        canvas.setOnMouseDragged(this::handleMouseDragged);
-        canvas.setOnScroll(this::handleScroll);
-        canvas.setOnKeyPressed(this::handleKeyPressed);
-        canvas.setOnKeyReleased(this::handleKeyReleased);
-        canvas.setOnKeyTyped(this::handleKeyTyped);
-        canvas.setOnMouseEntered(e -> requestFocus());
+        // Visibility is now handled by the binding to disconnectionPane.visibleProperty()
+        connected.addListener((o, was, is) -> {
+            // When disconnected, request a redraw to ensure clean state
+            if (is) {
+                redraw();
+            }
+        });
 
         focusedProperty().addListener((obs, oldVal, newVal) -> {
             if (!newVal && keyboardListener != null) {
@@ -94,34 +83,35 @@ public class VNCPane extends Pane {
             }
         });
 
-        // Visibility is now handled by the binding to disconnectionPane.visibleProperty()
-        connected.addListener((o, ov, nv) -> {
-            // When disconnected, request a redraw to ensure clean state
-            if (!nv) {
-                redraw();
-            }
-        });
+        try {
+            fxmlLoader.load();
+            // Retrieve the controller instance created by FXMLLoader
+            this.controller = fxmlLoader.getController();
+        } catch (IOException exception) {
+            throw new RuntimeException("Failed to load VNCViewer.fxml", exception);
+        }
 
-        redraw();
-    }
-
-    @Override
-    public boolean isResizable() {
-        return true;
-    }
-
-    @Override
-    public void resize(double width, double height) {
-        super.resize(width, height);
-        resizeDesktop((int)width, (int)height);
+        controller.canvas.setFocusTraversable(true);
+        // Hide the local OS pointer over the canvas so only the remote
+        // cursor rendered by the server is visible.
+        controller.canvas.setCursor(Cursor.NONE);
+        controller.canvas.setOnMousePressed(this::handleMousePressed);
+        controller.canvas.setOnMouseReleased(this::handleMouseReleased);
+        controller.canvas.setOnMouseMoved(this::handleMouseMoved);
+        controller.canvas.setOnMouseDragged(this::handleMouseDragged);
+        controller.canvas.setOnScroll(this::handleScroll);
+        controller.canvas.setOnKeyPressed(this::handleKeyPressed);
+        controller.canvas.setOnKeyReleased(this::handleKeyReleased);
+        controller.canvas.setOnKeyTyped(this::handleKeyTyped);
+        controller.canvas.setOnMouseEntered(e -> requestFocus());
     }
 
     public void resizeDesktop(int width, int height) {
         this.desktopWidth = width;
         this.desktopHeight = height;
-        canvas.setWidth(width);
-        canvas.setHeight(height);
-        disconnectionPane.resize(width, height);
+        controller.canvas.setWidth(width);
+        controller.canvas.setHeight(height);
+        controller.disconnectionPane.resize(width, height);
         setPrefSize(width, height);
         // Reset diagnostics so we log the new size on next redraw.
         loggedFirstDraw = false;
@@ -163,7 +153,7 @@ public class VNCPane extends Pane {
             return;
         }
 
-        final GraphicsContext gc = canvas.getGraphicsContext2D();
+        final GraphicsContext gc = controller.canvas.getGraphicsContext2D();
 
         final int[] fb = imageRender.getFramebuffer();
         if (fb == null || fb.length < w * h) {
@@ -192,7 +182,7 @@ public class VNCPane extends Pane {
         }
     }
 
-    public void setSelectionOverlay(int x, int y, int width, int height) {
+    public void selectionOverlay(int x, int y, int width, int height) {
         this.overlayX = x;
         this.overlayY = y;
         this.overlayWidth = Math.max(0, width);
@@ -206,19 +196,19 @@ public class VNCPane extends Pane {
         drawFramebuffer();
     }
 
-    public ImageRender getImageRender() {
+    public ImageRender imageRender() {
         return imageRender;
     }
 
-    public int getDesktopWidth() {
+    public int desktopWidth() {
         return desktopWidth;
     }
 
-    public int getDesktopHeight() {
+    public int desktopHeight() {
         return desktopHeight;
     }
 
-    public void setRemoteCursor(int width, int height, com.tigervnc.rfb.Point hotspot,
+    public void remoteCursor(int width, int height, com.tigervnc.rfb.Point hotspot,
         int[] data, byte[] mask) {
         if (width <= 0 || height <= 0 || data == null || mask == null) {
             return;
@@ -240,8 +230,8 @@ public class VNCPane extends Pane {
 
         double hx = hotspot != null ? hotspot.x : 0;
         double hy = hotspot != null ? hotspot.y : 0;
-        ImageCursor cursor = new ImageCursor(img, hx, hy);
-        canvas.setCursor(cursor);
+
+        controller.canvas.setCursor(new ImageCursor(img, hx, hy));
     }
 
     public void handleMousePressed(javafx.scene.input.MouseEvent e) {

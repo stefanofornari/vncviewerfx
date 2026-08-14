@@ -58,7 +58,7 @@ public class UserPreferences {
     Preferences node = root.node(nName);
     VoidParameter p = Configuration.getParam(key);
     if (p != null && p.isBool())
-      return node.getBoolean(key, ((p.getDefaultStr() == "1") ? true : false));
+      return node.getBoolean(key, "1".equals(p.getDefaultStr()));
     // for non-parameter preferences
     return node.getBoolean(key, defval);
   }

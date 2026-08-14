@@ -14,7 +14,7 @@
         <maven.compiler.target>21</maven.compiler.target>
         <maven.compiler.release>21</maven.compiler.release>
         <javafx.version>21.0.2</javafx.version>
-        <exec.mainClass>ste.vnc.viewer.demo.VNCViewerFX</exec.mainClass>
+        <exec.mainClass>ste.vnc.viewer.demo.VNCViewerDemo</exec.mainClass>
         <junit.jupiter.version>5.10.3</junit.jupiter.version>
     </properties>
     <dependencies>
