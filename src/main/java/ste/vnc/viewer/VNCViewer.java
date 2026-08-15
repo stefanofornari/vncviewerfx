@@ -1,18 +1,13 @@
 package ste.vnc.viewer;
 
-import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-import javafx.application.Platform;
 import javafx.scene.Cursor;
 import javafx.scene.ImageCursor;
-import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.image.PixelFormat;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
-import javafx.scene.paint.Color;
 
-import com.tigervnc.rfb.LogWriter;
 import java.io.IOException;
+import java.util.logging.Logger;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.fxml.FXMLLoader;
@@ -43,40 +38,18 @@ public class VNCViewer extends ScrollPane {
 
     public MouseInputListener mouseListener;
     public KeyboardInputListener keyboardListener;
-    private final ImageRender imageRender;
     private final VNCViewerController controller;
-    private int desktopWidth = 1;
-    private int desktopHeight = 1;
 
-    private final LogWriter vlog = new LogWriter(getClass().getName());
+    private final Logger logger = Logger.getLogger(getClass().getName());
 
-    private boolean loggedFirstDraw = false;
-    private boolean desktopSizeReady = false;
     private final AtomicBoolean redrawPending = new AtomicBoolean();
-
-    private int overlayX;
-    private int overlayY;
-    private int overlayWidth;
-    private int overlayHeight;
-    private boolean overlayVisible;
 
     public final BooleanProperty connected = new SimpleBooleanProperty(false);
 
 
     public VNCViewer() {
-        this.imageRender = new ImageRender(0, 0);
-
         FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("VNCViewer.fxml"));
         fxmlLoader.setRoot(this);
-        // Do NOT set controller manually here; FXML instantiates it via fx:controller
-
-        // Visibility is now handled by the binding to disconnectionPane.visibleProperty()
-        connected.addListener((o, was, is) -> {
-            // When disconnected, request a redraw to ensure clean state
-            if (is) {
-                redraw();
-            }
-        });
 
         focusedProperty().addListener((obs, oldVal, newVal) -> {
             if (!newVal && keyboardListener != null) {
@@ -105,204 +78,6 @@ public class VNCViewer extends ScrollPane {
         controller.canvas.setOnKeyReleased(this::handleKeyReleased);
         controller.canvas.setOnKeyTyped(this::handleKeyTyped);
         controller.canvas.setOnMouseEntered(e -> requestFocus());
-
-        // Add listeners to trigger redraw when canvas size changes
-        // (e.g., when window is moved or layout changes)
-        controller.canvas.widthProperty().addListener((obs, oldW, newW) -> {
-            if (newW.doubleValue() != oldW.doubleValue()) {
-                redraw();
-            }
-        });
-        controller.canvas.heightProperty().addListener((obs, oldH, newH) -> {
-            if (newH.doubleValue() != oldH.doubleValue()) {
-                redraw();
-            }
-        });
-    }
-
-    public void resizeDesktop(int width, int height) {
-        this.desktopWidth = width;
-        this.desktopHeight = height;
-        controller.canvas.setWidth(width);
-        controller.canvas.setHeight(height);
-        controller.disconnectionPane.resize(width, height);
-        setPrefSize(width, height);
-        // Also resize the image render to ensure it matches the canvas
-        if (imageRender.getWidth() != width || imageRender.getHeight() != height) {
-            imageRender.resize(width, height);
-        }
-        // Reset diagnostics so we log the new size on next redraw.
-        loggedFirstDraw = false;
-        desktopSizeReady = true;
-        UpdateLogger.logResize(width, height);
-        redraw();
-    }
-
-    public void updateFramebuffer(int x, int y, int w, int h, int[] pixels) {
-        if (!connected.get()) {
-            return;
-        }
-        imageRender.updatePixels(x, y, w, h, pixels);
-    }
-
-    public void redraw() {
-        if (!Platform.isFxApplicationThread()) {
-            requestRedrawOnFxThread();
-            return;
-        }
-
-        redrawPending.set(false);
-        drawFramebuffer();
-    }
-
-    private void requestRedrawOnFxThread() {
-        if (!redrawPending.compareAndSet(false, true)) {
-            return;
-        }
-        Platform.runLater(this::redraw);
-    }
-
-    private void drawFramebuffer() {
-        if (!desktopSizeReady) {
-            return;
-        }
-
-        final int w = desktopWidth, h = desktopHeight;
-        if (w <= 0 || h <= 0) {
-            return;
-        }
-
-        final GraphicsContext gc = controller.canvas.getGraphicsContext2D();
-        final PixelWriter pw = gc.getPixelWriter();
-
-        final int fbWidth = imageRender.getWidth();
-        final int fbHeight = imageRender.getHeight();
-
-        // If canvas is larger than framebuffer, clear the extra area first
-        // This prevents showing old content in the border areas when canvas is resized larger
-        if (w > fbWidth || h > fbHeight) {
-            gc.clearRect(fbWidth, 0, w - fbWidth, h);
-            gc.clearRect(0, fbHeight, fbWidth, h - fbHeight);
-        }
-
-        // Draw dirty regions incrementally
-        List<com.tigervnc.rfb.Rect> dirtyRegions = imageRender.drainDirty();
-
-        // Log the draw operation
-        UpdateLogger.logDrawFramebuffer(!dirtyRegions.isEmpty(), dirtyRegions.size(),
-            fbWidth, fbHeight, w, h);
-
-        // If there are no dirty regions, it means we need a full redraw
-        // (e.g., called from resize, overlay change, or window exposure)
-        if (dirtyRegions.isEmpty()) {
-            // Full redraw - get entire framebuffer
-            final int[] fb = imageRender.getFramebuffer();
-
-            if (fb == null || fb.length < fbWidth * fbHeight) {
-                if (overlayVisible) {
-                    gc.setStroke(Color.RED);
-                    gc.setLineWidth(2);
-                    gc.strokeRect(overlayX, overlayY, overlayWidth, overlayHeight);
-                }
-                return;
-            }
-
-            if (!loggedFirstDraw) {
-                loggedFirstDraw = true;
-                int sample = fb.length > 0 ? fb[0] : 0;
-                int center = fb.length > 0 ? fb[fb.length / 2] : 0;
-                vlog.debug("redraw " + w + "x" + h + " sample=0x" + Integer.toHexString(sample)
-                    + " center=0x" + Integer.toHexString(center));
-            }
-
-            // Clear the entire canvas first to remove any old content
-            gc.clearRect(0, 0, w, h);
-
-            // Clamp draw dimensions to canvas size in case framebuffer is larger
-            int drawWidth = Math.min(fbWidth, w);
-            int drawHeight = Math.min(fbHeight, h);
-
-            // Draw the framebuffer at its actual size (or clamped to canvas size)
-            pw.setPixels(0, 0, drawWidth, drawHeight,
-                PixelFormat.getIntArgbInstance(), fb, 0, fbWidth);
-
-            if (overlayVisible) {
-                gc.setStroke(Color.RED);
-                gc.setLineWidth(2);
-                gc.strokeRect(overlayX, overlayY, overlayWidth, overlayHeight);
-            }
-            return;
-        }
-
-        // Log first draw with the first dirty region's data
-        if (!loggedFirstDraw && !dirtyRegions.isEmpty()) {
-            loggedFirstDraw = true;
-            com.tigervnc.rfb.Rect first = dirtyRegions.get(0);
-            int[] fb = imageRender.getFramebuffer();
-            int sample = fb.length > 0 ? fb[0] : 0;
-            int center = fb.length > 0 ? fb[fb.length / 2] : 0;
-            vlog.debug("redraw " + w + "x" + h + " sample=0x" + Integer.toHexString(sample)
-                + " center=0x" + Integer.toHexString(center));
-        }
-
-        // Draw each dirty region
-        for (com.tigervnc.rfb.Rect r : dirtyRegions) {
-            int rx = r.tl.x;
-            int ry = r.tl.y;
-            int rw = r.width();
-            int rh = r.height();
-
-            // Clamp the region to both framebuffer and canvas bounds
-            // This handles the case where framebuffer was resized larger than canvas
-            int clampedX = Math.max(0, rx);
-            int clampedY = Math.max(0, ry);
-            int clampedW = Math.min(rw, Math.min(fbWidth - clampedX, w - clampedX));
-            int clampedH = Math.min(rh, Math.min(fbHeight - clampedY, h - clampedY));
-
-            // Skip if the clamped region has zero or negative dimensions
-            if (clampedW <= 0 || clampedH <= 0) {
-                vlog.info("Skipping dirty region after clamping: original=(" + rx + "," + ry + "," + rw + "x" + rh + ") clamped=(" + clampedX + "," + clampedY + "," + clampedW + "x" + clampedH + ")");
-                continue;
-            }
-
-            int[] region = imageRender.copyRegion(clampedX, clampedY, clampedW, clampedH);
-            if (region != null && region.length >= clampedW * clampedH) {
-                pw.setPixels(clampedX, clampedY, clampedW, clampedH,
-                    PixelFormat.getIntArgbInstance(), region, 0, clampedW);
-            }
-        }
-
-        if (overlayVisible) {
-            gc.setStroke(Color.RED);
-            gc.setLineWidth(2);
-            gc.strokeRect(overlayX, overlayY, overlayWidth, overlayHeight);
-        }
-    }
-
-    public void selectionOverlay(int x, int y, int width, int height) {
-        this.overlayX = x;
-        this.overlayY = y;
-        this.overlayWidth = Math.max(0, width);
-        this.overlayHeight = Math.max(0, height);
-        this.overlayVisible = overlayWidth > 0 && overlayHeight > 0;
-        drawFramebuffer();
-    }
-
-    public void clearSelectionOverlay() {
-        this.overlayVisible = false;
-        drawFramebuffer();
-    }
-
-    public ImageRender imageRender() {
-        return imageRender;
-    }
-
-    public int desktopWidth() {
-        return desktopWidth;
-    }
-
-    public int desktopHeight() {
-        return desktopHeight;
     }
 
     public void remoteCursor(int width, int height, com.tigervnc.rfb.Point hotspot,

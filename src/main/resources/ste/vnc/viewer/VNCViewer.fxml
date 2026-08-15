@@ -4,7 +4,7 @@
 <?import ste.vnc.viewer.*?>
 
 <?import javafx.scene.control.ScrollPane?>
-<?import javafx.scene.canvas.Canvas?>
+<?import javafx.scene.image.ImageView?>
 
 <fx:root xmlns:fx="http://javafx.com/fxml/1"
          type="javafx.scene.control.ScrollPane"
@@ -18,7 +18,7 @@
 >
     <content>
         <StackPane>
-            <Canvas fx:id="canvas" width="600" height="800" visible="false"></Canvas>
+            <ImageView fx:id="canvas" visible="false"></ImageView>
             <DisconnectionPane fx:id="disconnectionPane" visible="true"></DisconnectionPane>
         </StackPane>
     </content>

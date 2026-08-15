@@ -133,7 +133,7 @@
                     <mainClass>${exec.mainClass}</mainClass>
                     <options>
                         <option>-Djava.util.logging.config.file=src/main/resources/logging.properties</option>
-                        <!--option>-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:8000</option-->
+                        <!--<option>-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:8000</option>-->
                     </options>
                 </configuration>
             </plugin>

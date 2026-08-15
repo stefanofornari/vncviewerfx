@@ -38,19 +38,6 @@ public class VNCViewerDemoController {
         SecurityClient.setDefaults();
         Security.enabledSecTypes.clear();
         Security.EnableSecType(Security.secTypeNone);
-
-        //
-        // not used for now...
-        //
-        if (rectangleTracePane != null) {
-            rectangleTracePane.setOnSelectionChanged(selected -> {
-                if (selected == null) {
-                    viewer.clearSelectionOverlay();
-                } else {
-                    viewer.selectionOverlay(selected.x(), selected.y(), selected.width(), selected.height());
-                }
-            });
-        }
     }
 
     @FXML

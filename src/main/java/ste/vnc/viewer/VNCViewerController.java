@@ -5,7 +5,7 @@ import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
-import javafx.scene.canvas.Canvas;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyEvent;
@@ -24,7 +24,7 @@ public class VNCViewerController {
     private volatile String lastClipboardSent = "";
 
     @FXML
-    public Canvas canvas;
+    public ImageView canvas;
 
     @FXML
     public DisconnectionPane disconnectionPane;
@@ -36,7 +36,9 @@ public class VNCViewerController {
 
     @FXML
     public void initialize() {
-        connection = new CConnFX(viewer);
+        connection = new CConnFX();
+
+        canvas.imageProperty().bind(connection.image);
 
         final EventBridge eventBridge = new EventBridge();
 
@@ -59,11 +61,6 @@ public class VNCViewerController {
         rfbThread.setDaemon(true);
         rfbThread.start();
 
-        connection.canvasSize.addListener((o, ov, nv) -> {
-            Platform.runLater(() -> {
-                viewer.resizeDesktop((int) nv.getWidth(), (int) nv.getHeight());
-            });
-        });
         connection.clipboard.addListener((o, ov, nv) -> {
             logger.finest("received clipboard content from %s: %s".formatted(o, nv));
             setServerClipboardText(nv);
@@ -104,11 +101,13 @@ public class VNCViewerController {
         clipboardTimeline.play();
 
         // Set up scroll pane viewport bounds listener for desktop resize
-        viewer.viewportBoundsProperty().addListener((obs, oldVal, newVal) -> {
-            if (connection != null && connection.connected.get() && newVal != null) {
-                int w = (int) Math.round(newVal.getWidth());
-                int h = (int) Math.round(newVal.getHeight());
-                connection.requestDesktopSize(w, h);
+        viewer.viewportBoundsProperty().addListener((o, was, is) -> {
+            if (connection != null && connection.connected.get() && is != null) {
+                int w = (int)is.getWidth();
+                int h = (int)is.getHeight();
+                if (w != (int)was.getWidth() || h != (int)was.getHeight()) {
+                    connection.requestDesktopSize(w, h);
+                }
             }
         });
         viewer.addEventFilter(KeyEvent.KEY_PRESSED, e -> {

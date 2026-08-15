@@ -17,7 +17,6 @@ class VNCViewerTest extends ApplicationTest {
     @Override
     public void start(Stage stage) {
         canvas = new VNCViewer();
-        canvas.resizeDesktop(100, 100);
         stage.setScene(new javafx.scene.Scene(canvas));
         stage.show();
     }
@@ -65,15 +64,4 @@ class VNCViewerTest extends ApplicationTest {
         then(disconnectionPane.isVisible()).isTrue();
     }
 
-    @Test
-    void updateFramebuffer_does_not_break_state_when_disconnected() {
-        // given: starts disconnected
-
-        // when
-        canvas.updateFramebuffer(0, 0, 10, 10, new int[100]);
-
-        // then
-        then(canvas.connected.get()).isFalse();
-        // No exception thrown: sufficient for this test level.
-    }
 }
