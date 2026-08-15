@@ -26,13 +26,13 @@ import javafx.scene.input.ScrollEvent;
  */
 public class MouseInputListener {
 
-    private final CConnFX connection;
+    private final VNCService connection;
     private final EventBridge eventBridge;
     private int lastX = 0;
     private int lastY = 0;
     private int lastButtonState = 0;
 
-    public MouseInputListener(CConnFX conn, EventBridge bridge) {
+    public MouseInputListener(VNCService conn, EventBridge bridge) {
         this.connection = conn;
         this.eventBridge = bridge;
     }

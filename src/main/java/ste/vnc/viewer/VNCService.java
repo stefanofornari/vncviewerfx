@@ -35,7 +35,7 @@ import javafx.scene.input.ScrollEvent;
 import static ste.lloop.Loop.on;
 
 
-public class CConnFX extends CConnection implements FdInStreamBlockCallback {
+public class VNCService extends CConnection implements FdInStreamBlockCallback {
 
     private final Logger logger = Logger.getLogger(getClass().getName());
 
@@ -88,7 +88,7 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
 
     public final ObjectProperty<WritableImage> image = new SimpleObjectProperty();
 
-    public CConnFX() {
+    public VNCService() {
         //
         // Hard-wire protocol options that we comfortable they work
         // - Server-rendered cursor in the framebuffer

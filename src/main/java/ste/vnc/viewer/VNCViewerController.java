@@ -32,11 +32,11 @@ public class VNCViewerController {
     @FXML
     public VNCViewer viewer;
 
-    private CConnFX connection;
+    private VNCService connection;
 
     @FXML
     public void initialize() {
-        connection = new CConnFX();
+        connection = new VNCService();
 
         canvas.imageProperty().bind(connection.image);
 
@@ -114,6 +114,7 @@ public class VNCViewerController {
                     connection.requestDesktopSize(w, h);
                 }
             }
+            disconnectionPane.setPrefSize(is.getWidth(), is.getHeight());
         });
         viewer.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
             viewer.requestFocus();
@@ -133,9 +134,6 @@ public class VNCViewerController {
 
         disconnectionPane.visibleProperty().bind(viewer.connected.not());
         disconnectionPane.managedProperty().bind(disconnectionPane.visibleProperty());
-        connection.image.addListener((o, was, is) -> {
-            disconnectionPane.setPrefSize(is.getWidth(), is.getHeight());
-        });
 
         canvas.visibleProperty().bind(viewer.connected);
         canvas.managedProperty().bind(canvas.visibleProperty());

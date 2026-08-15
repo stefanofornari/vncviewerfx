@@ -9,11 +9,11 @@ import javafx.scene.input.KeyEvent;
  */
 public class KeyboardInputListener {
 
-    private final CConnFX connection;
+    private final VNCService connection;
     private final EventBridge eventBridge;
     private final Map<javafx.scene.input.KeyCode, Integer> downKeySym = new HashMap<>();
 
-    public KeyboardInputListener(CConnFX conn, EventBridge bridge) {
+    public KeyboardInputListener(VNCService conn, EventBridge bridge) {
         this.connection = conn;
         this.eventBridge = bridge;
     }
