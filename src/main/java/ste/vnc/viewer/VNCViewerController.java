@@ -47,19 +47,24 @@ public class VNCViewerController {
 
         // Start the RFB processing loop on a background thread so that
         // incoming framebuffer updates are handled continuously.
-        Thread rfbThread = new Thread(() -> {
-            try {
-                while (connection.connected.get()) {
-                    connection.processMsg();
+        // Use a virtual thread for blocking socket I/O loops
+        Thread rfbThread = Thread.ofVirtual()
+            .name("VncViewerFx-RFB")
+            .start(() -> {
+                try {
+                    while (connection.connected.get()) {
+                        connection.processMsg();
+                    }
+                } catch (Exception e) {
+                    logger.warning("RFB loop terminated: " + e.getMessage());
+                } finally {
+                    // Ensure connection cleanup and thread-safe UI update
+                    Platform.runLater(() -> {
+                        connection.connected.set(false);
+                    });
+                    connection.close();
                 }
-            } catch (Exception e) {
-                e.printStackTrace();
-                logger.warning("RFB loop terminated: " + e.toString());
-                connection.connected.set(false);
-            }
-        }, "VncViewerFx-RFB");
-        rfbThread.setDaemon(true);
-        rfbThread.start();
+            });
 
         connection.clipboard.addListener((o, ov, nv) -> {
             logger.finest("received clipboard content from %s: %s".formatted(o, nv));
@@ -128,6 +133,9 @@ public class VNCViewerController {
 
         disconnectionPane.visibleProperty().bind(viewer.connected.not());
         disconnectionPane.managedProperty().bind(disconnectionPane.visibleProperty());
+        connection.image.addListener((o, was, is) -> {
+            disconnectionPane.setPrefSize(is.getWidth(), is.getHeight());
+        });
 
         canvas.visibleProperty().bind(viewer.connected);
         canvas.managedProperty().bind(canvas.visibleProperty());
