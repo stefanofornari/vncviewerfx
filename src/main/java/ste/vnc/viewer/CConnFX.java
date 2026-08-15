@@ -17,6 +17,7 @@ import com.tigervnc.rfb.Screen;
 import com.tigervnc.rfb.ScreenSet;
 import com.tigervnc.rfb.fenceTypes;
 import java.awt.Dimension;
+import java.nio.ByteOrder;
 import java.util.Iterator;
 import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
@@ -28,7 +29,6 @@ import javafx.beans.property.StringProperty;
 import javafx.geometry.Dimension2D;
 import javafx.scene.input.ScrollEvent;
 import static ste.lloop.Loop.on;
-
 
 // TODO: remove dependency on viewer?
 public class CConnFX extends CConnection implements FdInStreamBlockCallback {
@@ -76,7 +76,6 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
     private int updateCount = 0;
     private int currentEncoding = Encodings.encodingRaw;
 
-
     public CConnFX(final VNCViewer viewer) {
         this.viewer = viewer;
 
@@ -102,7 +101,6 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
         currentEncoding = Encodings.encodingZRLE;
         vlog.info("Preferred encoding: " + Encodings.encodingName(currentEncoding));
 
-        viewer.connected.bind(connected);
         try {
             sock = new TcpSocket("127.0.0.1", 5905);
 
@@ -133,26 +131,27 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
      * matching the logic in TigerVNC's PlatformPixelBuffer.getNativePF().
      */
     private static PixelFormat computeNativePF() {
-        java.awt.image.ColorModel cm = Toolkit.getDefaultToolkit().getColorModel();
-        if (cm.getColorSpace().getType() == java.awt.color.ColorSpace.TYPE_RGB) {
-            int depth = Math.min(cm.getPixelSize(), 24);
-            int bpp = (depth > 16 ? 32 : (depth > 8 ? 16 : 8));
-            java.nio.ByteOrder byteOrder = java.nio.ByteOrder.nativeOrder();
-            boolean bigEndian = (byteOrder == java.nio.ByteOrder.BIG_ENDIAN);
-            boolean trueColour = (depth > 8);
-            int redShift   = cm.getComponentSize()[0] + cm.getComponentSize()[1];
-            int greenShift = cm.getComponentSize()[0];
-            int blueShift  = 0;
-            return new PixelFormat(bpp, depth, bigEndian, trueColour,
-                (depth > 8 ? 0xff : 0),
-                (depth > 8 ? 0xff : 0),
-                (depth > 8 ? 0xff : 0),
-                (depth > 8 ? redShift : 0),
-                (depth > 8 ? greenShift : 0),
-                (depth > 8 ? blueShift : 0));
-        }
-        // Fallback to a safe 8-bit palette format if the display is not RGB.
-        return new PixelFormat(8, 8, false, false, 7, 7, 3, 0, 3, 6);
+        // JavaFX Prism pipeline normalizes rendering to standard 32-bit TrueColor (24-bit color depth)
+        int depth = 24;
+        int bpp = 32;
+        boolean bigEndian = (ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN);
+        boolean trueColour = true;
+
+        // 8 bits per channel max values (0xff)
+        int redMax = 0xff;
+        int greenMax = 0xff;
+        int blueMax = 0xff;
+
+        // Standard 32-bit RGB bit shifts matching JavaFX ARGB pixel format
+        int redShift = 16;
+        int greenShift = 8;
+        int blueShift = 0;
+
+        return new PixelFormat(
+            bpp, depth, bigEndian, trueColour,
+            redMax, greenMax, blueMax,
+            redShift, greenShift, blueShift
+        );
     }
 
     public void connectionLost() {
@@ -453,9 +452,12 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
                 pf = fullColourPF;
             } else {
                 pf = switch (lowColourLevel) {
-                    case 0 -> verylowColourPF;
-                    case 1 -> lowColourPF;
-                    default -> mediumColourPF;
+                    case 0 ->
+                        verylowColourPF;
+                    case 1 ->
+                        lowColourPF;
+                    default ->
+                        mediumColourPF;
                 };
             }
 
@@ -480,7 +482,8 @@ public class CConnFX extends CConnection implements FdInStreamBlockCallback {
 
         if (encodingChange) {
             vlog.info("Requesting encoding");
-            requestEncodings(); encodingChange = false;
+            requestEncodings();
+            encodingChange = false;
         }
 
         if (forceNonincremental || !continuousUpdates) {

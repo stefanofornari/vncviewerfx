@@ -17,6 +17,8 @@
         <exec.mainClass>ste.vnc.viewer.demo.VNCViewerDemo</exec.mainClass>
         <junit.jupiter.version>5.10.3</junit.jupiter.version>
     </properties>
+
+
     <dependencies>
         <dependency>
             <groupId>org.openjfx</groupId>

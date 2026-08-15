@@ -18,8 +18,8 @@
 >
     <content>
         <StackPane>
-            <Canvas fx:id="canvas" width="600" height="800"></Canvas>
-            <DisconnectionPane fx:id="disconnectionPane" visible="false"></DisconnectionPane>
+            <Canvas fx:id="canvas" width="600" height="800" visible="false"></Canvas>
+            <DisconnectionPane fx:id="disconnectionPane" visible="true"></DisconnectionPane>
         </StackPane>
     </content>
 </fx:root>

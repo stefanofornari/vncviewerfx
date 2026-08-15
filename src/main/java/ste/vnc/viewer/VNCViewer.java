@@ -48,7 +48,7 @@ public class VNCViewer extends ScrollPane {
     private int desktopWidth = 1;
     private int desktopHeight = 1;
 
-    private final LogWriter vlog = new LogWriter("DesktopCanvasFx");
+    private final LogWriter vlog = new LogWriter(getClass().getName());
 
     private boolean loggedFirstDraw = false;
     private boolean desktopSizeReady = false;
@@ -105,7 +105,7 @@ public class VNCViewer extends ScrollPane {
         controller.canvas.setOnKeyReleased(this::handleKeyReleased);
         controller.canvas.setOnKeyTyped(this::handleKeyTyped);
         controller.canvas.setOnMouseEntered(e -> requestFocus());
-        
+
         // Add listeners to trigger redraw when canvas size changes
         // (e.g., when window is moved or layout changes)
         controller.canvas.widthProperty().addListener((obs, oldW, newW) -> {
@@ -187,17 +187,17 @@ public class VNCViewer extends ScrollPane {
 
         // Draw dirty regions incrementally
         List<com.tigervnc.rfb.Rect> dirtyRegions = imageRender.drainDirty();
-        
+
         // Log the draw operation
         UpdateLogger.logDrawFramebuffer(!dirtyRegions.isEmpty(), dirtyRegions.size(),
             fbWidth, fbHeight, w, h);
-        
+
         // If there are no dirty regions, it means we need a full redraw
         // (e.g., called from resize, overlay change, or window exposure)
         if (dirtyRegions.isEmpty()) {
             // Full redraw - get entire framebuffer
             final int[] fb = imageRender.getFramebuffer();
-            
+
             if (fb == null || fb.length < fbWidth * fbHeight) {
                 if (overlayVisible) {
                     gc.setStroke(Color.RED);
@@ -217,15 +217,15 @@ public class VNCViewer extends ScrollPane {
 
             // Clear the entire canvas first to remove any old content
             gc.clearRect(0, 0, w, h);
-            
+
             // Clamp draw dimensions to canvas size in case framebuffer is larger
             int drawWidth = Math.min(fbWidth, w);
             int drawHeight = Math.min(fbHeight, h);
-            
+
             // Draw the framebuffer at its actual size (or clamped to canvas size)
             pw.setPixels(0, 0, drawWidth, drawHeight,
                 PixelFormat.getIntArgbInstance(), fb, 0, fbWidth);
-            
+
             if (overlayVisible) {
                 gc.setStroke(Color.RED);
                 gc.setLineWidth(2);
@@ -251,20 +251,20 @@ public class VNCViewer extends ScrollPane {
             int ry = r.tl.y;
             int rw = r.width();
             int rh = r.height();
-            
+
             // Clamp the region to both framebuffer and canvas bounds
             // This handles the case where framebuffer was resized larger than canvas
             int clampedX = Math.max(0, rx);
             int clampedY = Math.max(0, ry);
             int clampedW = Math.min(rw, Math.min(fbWidth - clampedX, w - clampedX));
             int clampedH = Math.min(rh, Math.min(fbHeight - clampedY, h - clampedY));
-            
+
             // Skip if the clamped region has zero or negative dimensions
             if (clampedW <= 0 || clampedH <= 0) {
                 vlog.info("Skipping dirty region after clamping: original=(" + rx + "," + ry + "," + rw + "x" + rh + ") clamped=(" + clampedX + "," + clampedY + "," + clampedW + "x" + clampedH + ")");
                 continue;
             }
-            
+
             int[] region = imageRender.copyRegion(clampedX, clampedY, clampedW, clampedH);
             if (region != null && region.length >= clampedW * clampedH) {
                 pw.setPixels(clampedX, clampedY, clampedW, clampedH,

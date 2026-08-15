@@ -125,7 +125,8 @@ public class VNCViewerController {
             e.consume();
         });
 
-        // Bind disconnection pane visibility to connected property (inverted)
+        viewer.connected.bind(connection.connected);
+
         disconnectionPane.visibleProperty().bind(viewer.connected.not());
         disconnectionPane.managedProperty().bind(disconnectionPane.visibleProperty());
 
