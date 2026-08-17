@@ -14,7 +14,8 @@
          pannable="false"
          maxWidth="Infinity" maxHeight="Infinity"
          fitToWidth="false" fitToHeight="false"
-         fx:controller="ste.vnc.viewer.VNCViewerController"
+         fx:controller="ste.vnc.viewer.DummyVNCViewerController"
+         connect="MANUAL"
 >
     <content>
         <StackPane>

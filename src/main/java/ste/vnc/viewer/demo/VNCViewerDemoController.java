@@ -4,6 +4,7 @@ import com.tigervnc.rfb.Configuration;
 import com.tigervnc.rfb.LogWriter;
 import com.tigervnc.rfb.Security;
 import com.tigervnc.rfb.SecurityClient;
+import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.TextArea;
 import javafx.stage.Stage;
@@ -16,8 +17,9 @@ public class VNCViewerDemoController {
     private TextArea infoText;
     @FXML
     private RectangleTracePane rectangleTracePane;
-
+    @FXML
     private VNCViewer viewer;
+
     private Runnable onClose;
 
     public Stage stage;
@@ -38,6 +40,13 @@ public class VNCViewerDemoController {
         SecurityClient.setDefaults();
         Security.enabledSecTypes.clear();
         Security.EnableSecType(Security.secTypeNone);
+
+        Platform.runLater(() -> {
+            //Stage stage = (Stage) viewer.getScene().getWindow();
+            stage.titleProperty().bind(
+                viewer.uri.map(uri -> uri == null ? "Untitled App" : uri.toString())
+            );
+        });
     }
 
     @FXML

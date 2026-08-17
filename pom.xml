@@ -105,6 +105,24 @@
         </dependency>
         <dependency>
             <groupId>com.github.stefanofornari</groupId>
+            <artifactId>xtest</artifactId>
+            <version>3.12.1-SNAPSHOT</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>5.23.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <version>5.23.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.github.stefanofornari</groupId>
             <artifactId>lambda-loop</artifactId>
             <version>0.6.3</version>
         </dependency>
@@ -164,7 +182,7 @@
                 <configuration>
                     <useModulePath>false</useModulePath>
                     <includes>
-                        <include>**/*Test.java</include>
+                        <include>**/*Spec.java</include>
                     </includes>
                     <systemPropertyVariables>
                         <testfx.robot>glass</testfx.robot>
@@ -186,6 +204,26 @@
                     <arguments>-Dmaven.javadoc.skip=true -DskipTests</arguments>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.15</version>
+                <executions>
+                    <execution>
+                        <id>pre-unit-test</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>post-unit-test</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
         <testResources>
             <testResource>
@@ -195,33 +233,6 @@
     </build>
 
     <profiles>
-        <profile>
-            <id>release</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.jacoco</groupId>
-                        <artifactId>jacoco-maven-plugin</artifactId>
-                        <version>0.8.15</version>
-                        <executions>
-                            <execution>
-                                <id>pre-unit-test</id>
-                                <goals>
-                                    <goal>prepare-agent</goal>
-                                </goals>
-                            </execution>
-                            <execution>
-                                <id>post-unit-test</id>
-                                <phase>test</phase>
-                                <goals>
-                                    <goal>report</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
         <profile>
             <id>headful</id>
             <build>

@@ -26,7 +26,7 @@
                       wrapText="true" editable="true" prefWidth="200.0"
                       text="This area demonstrates clipboard integration between the local system and the remote VNC desktop.&#10;&#10;You can cut or copy text here and paste it into applications on the remote desktop using the standard paste shortcut (usually Ctrl+V).&#10;&#10;Likewise, text copied on the remote desktop is automatically transferred to the local clipboard and can be pasted here or into other local applications."
             />
-            <VNCViewer fx:id="viewer"></VNCViewer>
+            <VNCViewer fx:id="viewer" connect="AUTO" uri="vnc://localhost:5905"></VNCViewer>
             <!--RectangleTracePane fx:id="rectangleTracePane" minWidth="400.0" /-->
         </HBox>
     </center>

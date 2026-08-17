@@ -20,6 +20,8 @@ import java.nio.ByteOrder;
 import java.nio.IntBuffer;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.logging.Logger;
 import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
@@ -35,25 +37,28 @@ import javafx.scene.input.ScrollEvent;
 import static ste.lloop.Loop.on;
 
 
-public class VNCService extends CConnection implements FdInStreamBlockCallback {
-
-    private final Logger logger = Logger.getLogger(getClass().getName());
-
+public class VNCService extends CConnection implements FdInStreamBlockCallback, AutoCloseable {
     // Use the same native pixel format as the Swing viewer so the server
     // treats us the same way. ImageRender will convert from that format to
     // JavaFX INT_ARGB. The native format is computed from the AWT toolkit's
     // ColorModel, matching PlatformPixelBuffer.getNativePF().
     static final PixelFormat NATIVE_PF = computeNativePF();
-
-    public final StringProperty clipboard = new SimpleStringProperty();
-    public final BooleanProperty connected = new SimpleBooleanProperty(false);
-
     static final PixelFormat verylowColourPF = new PixelFormat(8, 3, false, true, 1, 1, 1, 2, 1, 0);
     static final PixelFormat lowColourPF = new PixelFormat(8, 6, false, true, 3, 3, 3, 4, 2, 0);
     static final PixelFormat mediumColourPF = new PixelFormat(8, 8, false, false, 7, 7, 3, 0, 3, 6);
 
+    private final Logger logger = Logger.getLogger(getClass().getName());
+
+    public final StringProperty clipboard = new SimpleStringProperty();
+    public final BooleanProperty connected = new SimpleBooleanProperty(false);
+
+    protected ExecutorService executor = Executors.newThreadPerTaskExecutor(
+        Thread.ofVirtual().name("VNC RFB processing").factory()
+    );
+
     private final EventBridge eventBridge = new EventBridge();
     private final Dimension desktopSize = new Dimension();
+
     private Socket sock;
     private boolean shuttingDown;
     private boolean pendingPFChange;
@@ -78,8 +83,6 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback {
     private boolean supportsSyncFence;
     private int lastRequestedDesktopWidth = -1;
     private int lastRequestedDesktopHeight = -1;
-    private int pendingDesktopWidth = -1;
-    private int pendingDesktopHeight = -1;
     private int updateCount = 0;
     private int currentEncoding = Encodings.encodingRaw;
 
@@ -105,30 +108,12 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback {
         cp.compressLevel = 0;
         cp.noJpeg = true;
 
-        // Mimic the Swing viewer: prefer ZRLE and advertise all supported
-        // fallbacks (Tight, Hextile, Raw, CopyRect). This avoids the
-        // standalone RawDecoder, which does not handle compact CPIXEL.
+        //
+        // Prefer ZRLE and advertise all supported fallbacks (Tight, Hextile, Raw,
+        // CopyRect). This avoids the standalone RawDecoder, which does not
+        // handle compact CPIXEL.
+        //
         currentEncoding = Encodings.encodingZRLE;
-        logger.info("Preferred encoding: " + Encodings.encodingName(currentEncoding));
-
-        try {
-            sock = new TcpSocket("127.0.0.1", 5905);
-
-            connected.set(true);
-            logger.finest("CConnFX.connected set to true in CConnFX()");
-            logger.info("Accepted connection from " + sock.getPeerEndpoint());
-
-            sock.inStream().setBlockCallback(this);
-            setStreams(sock.inStream(), sock.outStream());
-            initialiseProtocol();
-
-            connected.set(true);
-            logger.finest("CConnFX.connected set to true in CConnFX()");
-
-        } catch (java.lang.Exception e) {
-            logger.info("Failed to establish VNC connection: " + e.toString());
-            sock = null;
-        }
     }
 
     @Override
@@ -415,6 +400,7 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback {
         cp.supportsFence = true;
 
         if ((flags & fenceTypes.fenceFlagRequest) != 0) {
+            logger.finest("fenceTypes.fenceFlagRequest");
             flags = flags & (fenceTypes.fenceFlagBlockBefore | fenceTypes.fenceFlagBlockAfter);
             writer().writeFence(flags, len, data);
             return;
@@ -430,7 +416,7 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback {
             PixelFormat pf = new PixelFormat();
 
             pf.read(memStream);
-            logger.info("Fence: new pixel format: " + pf.print());
+            logger.info("fence: new pixel format: " + pf.print());
 
             cp.setPF(pf);
         }
@@ -447,16 +433,29 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback {
         }
     }
 
+    /**
+     * Shuts down the network socket and stops background executor threads.
+     * Idempotent and safe to call multiple times.
+     */
+    @Override
     public void close() {
         shuttingDown = true;
         runOnFxThread(() -> connected.set(false));
-        try {
-            if (sock != null) {
-                sock.shutdown();
+
+        // 1. Close socket to unblock read/write operations
+        if (sock != null) {
+            try {
+                Socket s = sock;
+                sock = null; // Prevents re-entry
+                s.shutdown();
+            } catch (Exception e) {
+                logger.warning("Error closing VNC socket: " + e.getMessage());
             }
-        } catch (java.lang.Exception e) {
-            logger.warning("Error while closing VNC socket: " + e.toString());
-            throw new com.tigervnc.rfb.Exception(e.getMessage());
+        }
+
+        // 2. Shut down executor to stop background processing thread
+        if (executor != null && !executor.isShutdown()) {
+            executor.shutdownNow();
         }
     }
 
@@ -489,11 +488,6 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback {
         if (width <= 0 || height <= 0) {
             return;
         }
-
-        // Cache the last requested size so that we can send it once the
-        // server indicates support for SetDesktopSize.
-        pendingDesktopWidth = width;
-        pendingDesktopHeight = height;
 
         if (!cp.supportsSetDesktopSize) {
             return;
@@ -531,6 +525,50 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback {
         incremental = false;
         requestNewUpdate();
     }
+
+    // --------------------------------------------------------------- main loop
+
+    // Start the RFB processing loop on a background thread so that
+    // incoming framebuffer updates are handled continuously.
+    // Use a virtual thread for blocking socket I/O loops
+    public void connect(final String host, final int port) {
+        executor.execute(() -> {
+                try {
+                    sock = createSocket(host, port);
+                    sock.inStream().setBlockCallback(this);
+                    setStreams(sock.inStream(), sock.outStream());
+                    doInitialiseProtocol();
+
+                    runOnFxThread(() -> connected.set(true));
+                    logger.info(() -> "connected to " + sock.getPeerEndpoint());
+
+                    while (!Thread.currentThread().isInterrupted()) {
+                        processMsg();
+                    }
+                } catch (Exception e) {
+                    logger.info("RFB loop terminated: " + e.getMessage());
+                } finally {
+                    close();
+                }
+            });
+    }
+
+    /**
+     * Alias for {@link #close()} for lifecycle symmetry with {@link #connect()}.
+     */
+    public void disconnect() {
+        close();
+    }
+
+    protected Socket createSocket(String host, int port) throws Exception {
+        return new TcpSocket(host, port);
+    }
+
+    protected void doInitialiseProtocol() {
+        initialiseProtocol(); // Mainly for testing, it calls the final parent method
+    }
+
+    // ---------------------------------------------------------------------
 
     private void resizeImage(final int w, final int h) {
         if (cp.width > 0 && cp.height > 0) {

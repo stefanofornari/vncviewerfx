@@ -18,6 +18,9 @@ Reusable JavaFX component for embedding a VNC viewer and interacting with a VNC 
 - **[US-000009](component/US-000009/US-000009.md)**: Support ZRLE Encoding
 - **[US-000010](component/US-000010/US-000010.md)**: Handle Connection Loss Gracefully
 - **[US-000017](component/US-000017/US-000017.md)**: Display Animated Disconnection Pane
+- **[US-000018](component/US-000018/US-000018.md)**: Resize remote desktop on component resizing - configurable
+- **[US-000019](component/US-000019/US-000019.md)**: AUTO/MANUAL connection mode
+- **[US-000020](component/US-000020/US-000020.md)**: Connection URI
 
 ### Demo
 Demo JavaFX application used to showcase the VNCViewerFX component and provide simple configuration UI.

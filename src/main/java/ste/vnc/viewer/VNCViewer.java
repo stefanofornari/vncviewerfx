@@ -1,15 +1,17 @@
 package ste.vnc.viewer;
 
-import java.util.concurrent.atomic.AtomicBoolean;
 import javafx.scene.Cursor;
 import javafx.scene.ImageCursor;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.logging.Logger;
 import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.control.ScrollPane;
 
@@ -36,16 +38,23 @@ import javafx.scene.control.ScrollPane;
  */
 public class VNCViewer extends ScrollPane {
 
+    public enum ConnectionMode {
+        AUTO, MANUAL
+    }
+
     public MouseInputListener mouseListener;
     public KeyboardInputListener keyboardListener;
-    private final VNCViewerController controller;
+    public final BooleanProperty connected = new SimpleBooleanProperty(false);
+
+    public final ObjectProperty<URI> uri =
+        new SimpleObjectProperty<>(this, "connectionURI", URI.create("vnc://localhost:5900"));
+
+    protected final VNCViewerController controller;
 
     private final Logger logger = Logger.getLogger(getClass().getName());
 
-    private final AtomicBoolean redrawPending = new AtomicBoolean();
-
-    public final BooleanProperty connected = new SimpleBooleanProperty(false);
-
+    // TODO remove: private final AtomicBoolean redrawPending = new AtomicBoolean();
+    private ConnectionMode connectionMode = ConnectionMode.MANUAL;
 
     public VNCViewer() {
         FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("VNCViewer.fxml"));
@@ -78,6 +87,22 @@ public class VNCViewer extends ScrollPane {
         controller.canvas.setOnKeyReleased(this::handleKeyReleased);
         controller.canvas.setOnKeyTyped(this::handleKeyTyped);
         controller.canvas.setOnMouseEntered(e -> requestFocus());
+    }
+
+    public void setConnect(final ConnectionMode connect) {
+        this.connectionMode = connect;
+    }
+
+    public ConnectionMode getConnect() {
+        return connectionMode;
+    }
+
+    public void setUri(final String uri) {
+        this.uri.set(URI.create(uri));
+    }
+
+    public String getUri() {
+        return String.valueOf(uri.get());
     }
 
     public void remoteCursor(int width, int height, com.tigervnc.rfb.Point hotspot,
@@ -154,4 +179,15 @@ public class VNCViewer extends ScrollPane {
             keyboardListener.onKeyTyped(e);
         }
     }
+
+    public void start() {
+        final URI uri = this.uri.get();
+        controller.vnc.connect(uri.getHost(), uri.getPort());
+    }
+
+    public void stop() {
+        controller.vnc.disconnect();
+    }
+
+
 }

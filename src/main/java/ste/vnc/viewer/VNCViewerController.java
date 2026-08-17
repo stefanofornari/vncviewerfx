@@ -1,5 +1,6 @@
 package ste.vnc.viewer;
 
+import java.net.URI;
 import java.util.logging.Logger;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -32,41 +33,21 @@ public class VNCViewerController {
     @FXML
     public VNCViewer viewer;
 
-    private VNCService connection;
+    protected VNCService vnc;
+
 
     @FXML
     public void initialize() {
-        connection = new VNCService();
+        vnc = newVNCService();
 
-        canvas.imageProperty().bind(connection.image);
+        canvas.imageProperty().bind(vnc.image);
 
         final EventBridge eventBridge = new EventBridge();
 
-        viewer.mouseListener = new MouseInputListener(connection, eventBridge);
-        viewer.keyboardListener = new KeyboardInputListener(connection, eventBridge);
+        viewer.mouseListener = new MouseInputListener(vnc, eventBridge);
+        viewer.keyboardListener = new KeyboardInputListener(vnc, eventBridge);
 
-        // Start the RFB processing loop on a background thread so that
-        // incoming framebuffer updates are handled continuously.
-        // Use a virtual thread for blocking socket I/O loops
-        Thread rfbThread = Thread.ofVirtual()
-            .name("VncViewerFx-RFB")
-            .start(() -> {
-                try {
-                    while (connection.connected.get()) {
-                        connection.processMsg();
-                    }
-                } catch (Exception e) {
-                    logger.warning("RFB loop terminated: " + e.getMessage());
-                } finally {
-                    // Ensure connection cleanup and thread-safe UI update
-                    Platform.runLater(() -> {
-                        connection.connected.set(false);
-                    });
-                    connection.close();
-                }
-            });
-
-        connection.clipboard.addListener((o, ov, nv) -> {
+        vnc.clipboard.addListener((o, ov, nv) -> {
             logger.finest("received clipboard content from %s: %s".formatted(o, nv));
             setServerClipboardText(nv);
         });
@@ -76,7 +57,7 @@ public class VNCViewerController {
         // server as ClientCutText messages.
         Timeline clipboardTimeline = new Timeline(
             new KeyFrame(Duration.millis(500), ev -> {
-                if (connection == null || !connection.connected.get()) {
+                if (vnc == null || !vnc.connected.get()) {
                     return;
                 }
 
@@ -94,7 +75,7 @@ public class VNCViewerController {
                         String toSend = current;
 
                         logger.finest("Sending ClientCutText, length=" + toSend.length());
-                        connection.writeClientCutText(toSend, toSend.length());
+                        vnc.writeClientCutText(toSend, toSend.length());
                     }
                 } catch (Exception ex) {
                     logger.info("Clipboard sync failed: " + ex.toString());
@@ -105,17 +86,32 @@ public class VNCViewerController {
         clipboardTimeline.setDelay(Duration.millis(500));
         clipboardTimeline.play();
 
-        // Set up scroll pane viewport bounds listener for desktop resize
+        //
+        // TODO - resizale should depend on a component property; see US-000018
+        //
+        // Set up scroll pane viewport bounds listener for desktop resize debouncing
+        // events to avoid useless traffic...
+        //
+        /*
+        PauseTransition resizeDebouncer = new PauseTransition(Duration.millis(300));
+        resizeDebouncer.setOnFinished(event -> {
+            Bounds bounds = viewer.getViewportBounds();
+            int w = (int) bounds.getWidth();
+            int h = (int) bounds.getHeight();
+
+            vnc.requestDesktopSize(w, h);
+        });
         viewer.viewportBoundsProperty().addListener((o, was, is) -> {
-            if (connection != null && connection.connected.get() && is != null) {
+            if (vnc != null && vnc.connected.get() && is != null) {
                 int w = (int)is.getWidth();
                 int h = (int)is.getHeight();
                 if (w != (int)was.getWidth() || h != (int)was.getHeight()) {
-                    connection.requestDesktopSize(w, h);
+                    resizeDebouncer.playFromStart();
                 }
             }
             disconnectionPane.setPrefSize(is.getWidth(), is.getHeight());
         });
+        */
         viewer.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
             viewer.requestFocus();
             viewer.handleKeyPressed(e);
@@ -130,7 +126,7 @@ public class VNCViewerController {
             e.consume();
         });
 
-        viewer.connected.bind(connection.connected);
+        viewer.connected.bind(vnc.connected);
 
         disconnectionPane.visibleProperty().bind(viewer.connected.not());
         disconnectionPane.managedProperty().bind(disconnectionPane.visibleProperty());
@@ -144,9 +140,25 @@ public class VNCViewerController {
         viewer.sceneProperty().addListener((obs, oldScene, newScene) -> {
             if (newScene == null) {
                 logger.info("closing vnc connection");
-                if (connection != null) {
-                    connection.close();
+                if (vnc != null) {
+                    vnc.close();
                 }
+            }
+        });
+
+        //
+        // Optionally start the connection.
+        // This goes into a runLater() section to defer execution until after
+        // the outer FXML parsing is finished and all setters have been invoked.
+        // This is needed because given an outer FXML that includes VNCViewer as
+        //
+        // <VNCViewer fx:id="viewer" connect="AUTO"></VNCViewer>
+        //
+        // VNCViewer's controller initialize() is called BEFORE connect is set.
+        //
+        Platform.runLater(() -> {
+            if (viewer.getConnect() == VNCViewer.ConnectionMode.AUTO) {
+                connect();
             }
         });
     }
@@ -171,6 +183,15 @@ public class VNCViewerController {
             return cb.getString();
         }
         return "";
+    }
+
+    public void connect() {
+        final URI uri = viewer.uri.get();
+        vnc.connect(uri.getHost(), uri.getPort());
+    }
+
+    protected VNCService newVNCService() {
+        return new VNCService();
     }
 
 }
