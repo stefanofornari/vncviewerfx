@@ -70,11 +70,11 @@ public class VNCViewerControllerSpec extends ApplicationTest {
     void initialize_binds_ui_visibility_to_vnc_connection_state() {
         controller.vnc.connected.set(false);
         then(controller.disconnectionPane.isVisible()).isTrue();
-        then(controller.canvas.isVisible()).isFalse();
+        then(controller.screen.isVisible()).isFalse();
 
         controller.vnc.connected.set(true);
         then(controller.disconnectionPane.isVisible()).isFalse();
-        then(controller.canvas.isVisible()).isTrue();
+        then(controller.screen.isVisible()).isTrue();
     }
 
     @Test

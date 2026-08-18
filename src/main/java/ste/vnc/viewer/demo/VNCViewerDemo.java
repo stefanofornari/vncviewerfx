@@ -17,6 +17,7 @@
  */
 package ste.vnc.viewer.demo;
 
+import atlantafx.base.theme.PrimerLight;
 import javafx.application.Application;
 import javafx.stage.Stage;
 
@@ -25,7 +26,6 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import ste.vnc.viewer.VNCViewer;
-import ste.vnc.viewer.VNCConfiguration;
 
 /**
  * Main JavaFX Application for running a VNC viewer demo.
@@ -43,10 +43,7 @@ public class VNCViewerDemo extends Application {
 
     @Override
     public void start(Stage primaryStage) {
-        //
-        // This initializes the Configuration object
-        //
-        VNCConfiguration vncConfiguration = new  VNCConfiguration(getParameters());
+        Application.setUserAgentStylesheet(new PrimerLight().getUserAgentStylesheet());
 
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("VNCViewerDemo.fxml"));
@@ -54,7 +51,9 @@ public class VNCViewerDemo extends Application {
 
             final VNCViewerDemoController controller = loader.getController();
 
-            Scene scene = new Scene(root, 768, 1024);
+            final Scene scene = new Scene(root, 768, 1024);
+            scene.getStylesheets().add(getClass().getResource("VNCViewerDemo.css").toExternalForm());
+
             primaryStage.setWidth(768); primaryStage.setHeight(1024);
             primaryStage.setTitle("VNC Viewer Demo");
             primaryStage.setScene(scene);

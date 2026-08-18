@@ -1,0 +1,52 @@
+.root {
+    -phosphor:        rgba(255, 178, 0, 1.0);
+    -phosphor-muted:  rgba(138, 95, 0, 0.85);
+    -phosphor-subtle: rgba(138, 95, 0, 0.15);
+
+    /* Main brand accent color */
+    -color-accent-emphasis: -phosphor;
+    -color-accent-fg:       -phosphor;
+    -color-accent-muted:    -phosphor-muted;
+    -color-accent-subtle:   -phosphor-subtle; /* Kept single definition */
+
+    /* Text selection color */
+    -color-cell-border-selected: -phosphor;
+
+    /* Background colors */
+    -color-bg-default: rgba(243, 230, 200, 1.0);
+    -color-bg-subtle:  rgba(243, 230, 200, 0.85);
+    -color-bg-overlay: -phosphor-muted;
+    -color-bg-inset:   -phosphor;
+
+    /* Interactive state colors */
+    -color-neutral-subtle: rgb(255, 0, 0);
+    -color-neutral-muted:  rgb(0, 255, 0);
+
+    /* Borders for popups and titlebars */
+    -color-border-default: -phosphor;
+    -color-border-muted:   -phosphor-muted;
+
+    /* Button hover styles */
+    -color-button-border-hover: -color-accent-muted;
+    -color-button-bg-hover:     -color-accent-emphasis;
+
+    /* --- MENU HOVER OVERRIDES --- */
+    /* 1. Standard JavaFX selection color (used by native MenuItems) */
+    -fx-selection-bar: -phosphor-subtle;
+    -fx-selection-bar-non-focused: -phosphor-subtle;
+
+    /* 2. Text color on hover (ensures readability) */
+    -fx-selection-bar-text: -color-fg-default;
+
+    /* 3. AtlantaFX-specific menu item hover variable */
+    -color-menu-item-bg-hover: -phosphor-subtle;
+    -color-menu-item-bg-focused: -phosphor-subtle;
+}
+
+/* Fallback: Direct selector targeting top-level menu bar headers and dropdown items */
+.menu-bar .menu:hover,
+.menu-bar .menu:showing,
+.menu-item:hover,
+.menu-item:focused {
+    -fx-background-color: -phosphor-subtle;
+}

@@ -91,13 +91,6 @@ public class VNCViewerDemoController {
     }
 
     @FXML
-    private void onOptions() {
-        if (stage != null) {
-            new OptionsDialogFX(stage).show();
-        }
-    }
-
-    @FXML
     private void onAbout() {
         // TODO
     }

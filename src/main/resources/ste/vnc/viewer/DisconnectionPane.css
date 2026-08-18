@@ -1,18 +1,55 @@
-.double-bordered-label {
-    -fx-background-color: rgba(0, 0, 0, 0.6);
+#rootPane {
+    -panel:        rgba(11, 15, 18, 0.82);
+    -panel-edge:   #263038;
+    -text:         #f3e6c8;
 
-    /* Define two border layers: outer layer, inner layer */
-    -fx-border-color: #4272f7, #4272f7;
-    -fx-border-style: solid, solid;
-    -fx-border-width: 2px, 2px;
+    -fx-font-family: "JetBrains Mono", "Consolas", monospace;
+}
 
-    /* 0px for outer border, 5px shift inward for inner border (creates the gap) */
-    -fx-border-insets: 0, 5px;
+/* Remove old separate .double-bordered-label rule */
 
-    /* Padding keeps text from touching the inner border */
-    -fx-padding: 12px;
+.double-bordered-label-inner {
+    /* Layer 1 (bottom): Outer phosphor border line color */
+    /* Layer 2 (middle): The subtle panel edge line */
+    /* Layer 3 (top): The dark main body background color */
+    -fx-background-color: -phosphor-muted, -panel-edge, -panel;
 
-    -fx-font-size: 28px;
-    -fx-font-weight: bold;
-    -fx-text-fill: #4272f7;
+    /* 0: spans the whole size */
+    /* 2: moves in by 2 pixels to show a 2px phosphor line */
+    /* 3: moves in by another pixel to show a 1px panel-edge line */
+    -fx-background-insets: 0, 2, 3;
+
+    /* Extra space inside the box so text does not clip the inner background inset lines */
+    -fx-padding: 31 29 27 29;
+
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.6), 40, 0, 0, 16);
+}
+
+.message {
+    -fx-text-fill: -text;
+    -fx-font-size: 14px;
+    -fx-text-alignment: center;
+}
+
+.retry-btn {
+    -fx-background-color: transparent;
+    -fx-background-radius: 0;
+    -fx-border-color: -phosphor-muted;
+    -fx-border-width: 1;
+    -fx-text-fill: -phosphor;
+    -fx-padding: 11 22 11 22;
+    -fx-font-size: 12.5px;
+    -fx-cursor: hand;
+}
+
+.retry-btn:hover,
+.retry-btn:focused {
+    -fx-background-color: -phosphor;
+    -fx-border-color: -phosphor;
+    -fx-text-fill: -panel;
+}
+
+.retry-btn:disabled {
+    -fx-opacity: 0.55;
+    -fx-cursor: default;
 }

@@ -94,6 +94,7 @@ Default URI is `vnc://localhost:5900`.
 Mouse movement, clicks, drags, and scroll-wheel events are forwarded to the server automatically when the component has focus. Keyboard input is forwarded on press/release/typed events.
 
 If you need custom handling, assign your own listeners:
+
 The component hides the local OS cursor over the canvas so only the remote cursor is visible.
 
 ## Clipboard synchronization
@@ -106,6 +107,8 @@ When the connection drops, the component:
 - Stops rendering framebuffer updates
 - Shows an animated scramble/noise background
 - Displays a centered "Connection to VNC server lost" message
+- Provides a **Retry connection** button
+- Starts a **10-second countdown** that automatically retries the connection
 
 The `connected` property flips to `false`, and the `DisconnectionPane` becomes visible automatically.
 
@@ -120,7 +123,7 @@ mvn clean package
 mvn javafx:run
 ```
 
-The demo application (`ste.vnc.viewer.demo.VNCViewerDemo`) opens a 768×1024 window with the embedded viewer and a small control bar (connect, options, full-screen, exit). The options dialog exposes a subset of TigerVNC parameters (encoding, compression, scaling).
+The demo application (`ste.vnc.viewer.demo.VNCViewerDemo`) opens a 768×1024 window with the embedded viewer and a menu bar (File, View, Help). The viewer is configured to connect automatically to `localhost:5905`.
 
 ## Running tests
 

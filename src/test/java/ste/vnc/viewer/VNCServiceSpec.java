@@ -150,6 +150,7 @@ class VNCServiceSpec extends ApplicationTest {
     @DisplayName("pointerEvent and keyEvent forward data to CMsgWriter when state is RFBSTATE_NORMAL")
     void pointerEvent_and_keyEvent_forward_data_when_state_is_normal() {
         vncService.forcedState(VNCServiceStub.RFBSTATE_NORMAL);
+        vncService.connected.set(true);
 
         Point p = new Point(15, 25);
         vncService.pointerEvent(p, 1);
@@ -176,6 +177,7 @@ class VNCServiceSpec extends ApplicationTest {
     @DisplayName("writeWheelEvent translates ScrollEvent to VNC pointer button masks")
     void writeWheelEvent_translates_ScrollEvent_to_pointer_button_masks() {
         vncService.forcedState(VNCServiceStub.RFBSTATE_NORMAL);
+        vncService.connected.set(true);
 
         ScrollEvent scrollUp = new ScrollEvent(
             ScrollEvent.SCROLL, 10.0, 10.0, 10.0, 10.0,

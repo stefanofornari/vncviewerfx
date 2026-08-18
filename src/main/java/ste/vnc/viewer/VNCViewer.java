@@ -91,19 +91,19 @@ public class VNCViewer extends ScrollPane {
             throw new RuntimeException("Failed to load VNCViewer.fxml", exception);
         }
 
-        controller.canvas.setFocusTraversable(true);
+        controller.screen.setFocusTraversable(true);
         // Hide the local OS pointer over the canvas so only the remote
         // cursor rendered by the server is visible.
-        controller.canvas.setCursor(Cursor.NONE);
-        controller.canvas.setOnMousePressed(this::handleMousePressed);
-        controller.canvas.setOnMouseReleased(this::handleMouseReleased);
-        controller.canvas.setOnMouseMoved(this::handleMouseMoved);
-        controller.canvas.setOnMouseDragged(this::handleMouseDragged);
-        controller.canvas.setOnScroll(this::handleScroll);
-        controller.canvas.setOnKeyPressed(this::handleKeyPressed);
-        controller.canvas.setOnKeyReleased(this::handleKeyReleased);
-        controller.canvas.setOnKeyTyped(this::handleKeyTyped);
-        controller.canvas.setOnMouseEntered(e -> requestFocus());
+        controller.screen.setCursor(Cursor.NONE);
+        controller.screen.setOnMousePressed(this::handleMousePressed);
+        controller.screen.setOnMouseReleased(this::handleMouseReleased);
+        controller.screen.setOnMouseMoved(this::handleMouseMoved);
+        controller.screen.setOnMouseDragged(this::handleMouseDragged);
+        controller.screen.setOnScroll(this::handleScroll);
+        controller.screen.setOnKeyPressed(this::handleKeyPressed);
+        controller.screen.setOnKeyReleased(this::handleKeyReleased);
+        controller.screen.setOnKeyTyped(this::handleKeyTyped);
+        controller.screen.setOnMouseEntered(e -> requestFocus());
     }
 
     public void setConnect(final ConnectionMode connect) {
@@ -145,7 +145,7 @@ public class VNCViewer extends ScrollPane {
         double hx = hotspot != null ? hotspot.x : 0;
         double hy = hotspot != null ? hotspot.y : 0;
 
-        controller.canvas.setCursor(new ImageCursor(img, hx, hy));
+        controller.screen.setCursor(new ImageCursor(img, hx, hy));
     }
 
     public void handleMousePressed(javafx.scene.input.MouseEvent e) {

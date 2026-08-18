@@ -39,6 +39,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.logging.Logger;
 import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
@@ -72,12 +73,12 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback, 
     protected ExecutorService executor = Executors.newThreadPerTaskExecutor(
         Thread.ofVirtual().name("VNC RFB processing").factory()
     );
+    protected Future vncProcessing = null;
 
     private final EventBridge eventBridge = new EventBridge();
     private final Dimension desktopSize = new Dimension();
 
     private Socket sock;
-    private boolean shuttingDown;
     private boolean pendingPFChange;
     private PixelFormat pendingPF;
     private PixelFormat fullColourPF = new PixelFormat();
@@ -168,19 +169,18 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback, 
 
     public void connectionLost() {
         logger.info("Connection to VNC server lost");
-        shuttingDown = true;
         runOnFxThread(() -> connected.set(false));
     }
 
     public void pointerEvent(Point position, int buttonMask) {
-        if (state() != RFBSTATE_NORMAL || shuttingDown) {
+        if (state() != RFBSTATE_NORMAL || !connected.get()) {
             return;
         }
         writer().writePointerEvent(position, buttonMask);
     }
 
     public void keyEvent(int keysym, boolean keyDown) {
-        if (state() != RFBSTATE_NORMAL || shuttingDown) {
+        if (state() != RFBSTATE_NORMAL || !connected.get()) {
             return;
         }
         logger.finest("Key event: keysym=0x" + Integer.toHexString(keysym)
@@ -456,7 +456,7 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback, 
      */
     @Override
     public void close() {
-        shuttingDown = true;
+        logger.info(() -> "closing VNC service and releasing resources");
         runOnFxThread(() -> connected.set(false));
 
         // 1. Close socket to unblock read/write operations
@@ -466,18 +466,18 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback, 
                 sock = null; // Prevents re-entry
                 s.shutdown();
             } catch (Exception e) {
-                logger.warning("Error closing VNC socket: " + e.getMessage());
+                logger.warning("error closing VNC socket: " + e.getMessage());
             }
         }
 
-        // 2. Shut down executor to stop background processing thread
-        if (executor != null && !executor.isShutdown()) {
-            executor.shutdownNow();
+        // 2. Cancel the running task if any
+        if (vncProcessing != null && !vncProcessing.isCancelled()) {
+            vncProcessing.cancel(true);
         }
     }
 
     public void writeWheelEvent(ScrollEvent ev) {
-        if (state() != RFBSTATE_NORMAL || shuttingDown) {
+        if (state() != RFBSTATE_NORMAL || !connected.get()) {
             return;
         }
 
@@ -549,25 +549,27 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback, 
     // incoming framebuffer updates are handled continuously.
     // Use a virtual thread for blocking socket I/O loops
     public void connect(final String host, final int port) {
-        executor.execute(() -> {
-                try {
-                    sock = createSocket(host, port);
-                    sock.inStream().setBlockCallback(this);
-                    setStreams(sock.inStream(), sock.outStream());
-                    doInitialiseProtocol();
+        vncProcessing = executor.submit(() -> {
+            try {
+                incremental = false;
+                logger.info(() -> "connecting to %s:%d".formatted(host, port));
+                sock = createSocket(host, port);
+                sock.inStream().setBlockCallback(this);
+                setStreams(sock.inStream(), sock.outStream());
+                doInitialiseProtocol();
 
-                    runOnFxThread(() -> connected.set(true));
-                    logger.info(() -> "connected to " + sock.getPeerEndpoint());
+                runOnFxThread(() -> connected.set(true));
+                logger.info(() -> "connected to " + sock.getPeerEndpoint());
 
-                    while (!Thread.currentThread().isInterrupted()) {
-                        processMsg();
-                    }
-                } catch (Exception e) {
-                    logger.info("RFB loop terminated: " + e.getMessage());
-                } finally {
-                    close();
+                while (!Thread.currentThread().isInterrupted()) {
+                    processMsg();
                 }
-            });
+            } catch (Exception e) {
+                logger.info("RFB loop terminated: " + e.getMessage());
+            } finally {
+                close();
+            }
+        });
     }
 
     /**
@@ -678,7 +680,7 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback, 
     }
 
     public void writeClientCutText(String str, int len) {
-        if (state() != RFBSTATE_NORMAL || shuttingDown) {
+        if (state() != RFBSTATE_NORMAL || !connected.get()) {
             return;
         }
         writer().writeClientCutText(str, len);

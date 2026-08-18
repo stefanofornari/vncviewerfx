@@ -18,8 +18,8 @@
 >
     <content>
         <StackPane>
-            <ImageView fx:id="canvas" visible="false"></ImageView>
-            <DisconnectionPane fx:id="disconnectionPane" visible="true"></DisconnectionPane>
+            <ImageView fx:id="screen" visible="false"></ImageView>
+            <DisconnectionPane fx:id="disconnectionPane" visible="false"></DisconnectionPane>
         </StackPane>
     </content>
 </fx:root>

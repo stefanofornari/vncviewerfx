@@ -42,7 +42,7 @@ public class VNCViewerController {
     private volatile String lastClipboardSent = "";
 
     @FXML
-    public ImageView canvas;
+    public ImageView screen;
 
     @FXML
     public DisconnectionPane disconnectionPane;
@@ -57,7 +57,7 @@ public class VNCViewerController {
     public void initialize() {
         vnc = newVNCService();
 
-        canvas.imageProperty().bind(vnc.image);
+        screen.imageProperty().bind(vnc.image);
 
         final EventBridge eventBridge = new EventBridge();
 
@@ -145,11 +145,22 @@ public class VNCViewerController {
 
         viewer.connected.bind(vnc.connected);
 
+        // fitToWidth/fitToHeight are false so the connected desktop image
+        // shows at its native resolution and scrolls rather than stretches.
+        // But that also means the ScrollPane's content StackPane is always
+        // sized from its children's own preferred sizes, never from the
+        // actual viewport — which collapses the disconnection overlay down
+        // to fit just its retry dialog. There's no image resolution to
+        // preserve while there's no image, so fill the viewport in that case.
+        viewer.fitToWidthProperty().bind(vnc.connected.not());
+        viewer.fitToHeightProperty().bind(vnc.connected.not());
+
         disconnectionPane.visibleProperty().bind(viewer.connected.not());
         disconnectionPane.managedProperty().bind(disconnectionPane.visibleProperty());
+        disconnectionPane.onRetry(this::connect);
 
-        canvas.visibleProperty().bind(viewer.connected);
-        canvas.managedProperty().bind(canvas.visibleProperty());
+        screen.visibleProperty().bind(viewer.connected);
+        screen.managedProperty().bind(screen.visibleProperty());
 
         //
         // cleanup when the component is removed from the scene

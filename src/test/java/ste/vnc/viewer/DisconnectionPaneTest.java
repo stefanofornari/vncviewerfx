@@ -100,4 +100,81 @@ class DisconnectionPaneTest extends ApplicationTest {
 
         then(disconnectionPane.controller.message.isVisible());
     }
+
+    @Test
+    void reconnect_button_shows_default_text_before_pane_is_visible() {
+        then(disconnectionPane.controller.reconnect.getText()).isEqualTo("Retry connection");
+    }
+
+    @Test
+    void reconnect_button_shows_countdown_once_pane_is_visible() {
+        interact(() -> disconnectionPane.setVisible(true));
+
+        then(disconnectionPane.controller.reconnect.getText()).isEqualTo("Retry connection (10s)");
+    }
+
+    @Test
+    void reconnect_triggers_onRetry() {
+        final AtomicBoolean clicked = new AtomicBoolean(false);
+        disconnectionPane.onRetry(() -> clicked.set(true));
+
+        // the button is only hit-testable once the pane is actually showing
+        interact(() -> disconnectionPane.setVisible(true));
+        clickOn("#reconnect");
+
+        then(clicked.get()).isTrue();
+    }
+
+    @Test
+    void reconnect_button_disabled_while_retry_is_in_progress() {
+        interact(() -> disconnectionPane.setVisible(true));
+
+        clickOn("#reconnect");
+
+        then(disconnectionPane.controller.reconnect.isDisabled()).isTrue();
+
+        await().atMost(2, TimeUnit.SECONDS)
+               .untilAsserted(() -> then(disconnectionPane.controller.reconnect.isDisabled()).isFalse());
+    }
+
+    @Test
+    void hiding_pane_mid_retry_cancels_the_pending_feedback_and_leaves_button_enabled() {
+        interact(() -> disconnectionPane.setVisible(true));
+
+        clickOn("#reconnect");
+        then(disconnectionPane.controller.reconnect.isDisabled()).isTrue();
+
+        // hide the pane before the "Connecting…" feedback would normally finish
+        interact(() -> disconnectionPane.setVisible(false));
+
+        then(disconnectionPane.controller.reconnect.isDisabled()).isFalse();
+
+        // wait past the feedback window to confirm it doesn't fire and
+        // re-enable/re-arm the countdown after the fact
+        await().atMost(2, TimeUnit.SECONDS)
+               .during(1200, TimeUnit.MILLISECONDS)
+               .until(() -> !disconnectionPane.controller.reconnect.isDisabled());
+    }
+
+    @Test
+    void retrying_continues_when_onRetry_throws() {
+        // simulates e.g. VNCService.connect() throwing RejectedExecutionException
+        // because the server is still down
+        disconnectionPane.onRetry(() -> {
+            throw new RuntimeException("server unreachable");
+        });
+
+        interact(() -> disconnectionPane.setVisible(true));
+        clickOn("#reconnect");
+
+        then(disconnectionPane.controller.reconnect.isDisabled()).isTrue();
+
+        // without catching the exception, attemptRetry() never reaches the
+        // code that re-enables the button, so this would time out
+        await().atMost(2, TimeUnit.SECONDS)
+               .untilAsserted(() -> then(disconnectionPane.controller.reconnect.isDisabled()).isFalse());
+
+        // and the countdown must actually be re-armed, not just the button re-enabled
+        then(disconnectionPane.controller.reconnect.getText()).isEqualTo("Retry connection (10s)");
+    }
 }

@@ -21,11 +21,11 @@ import com.tigervnc.network.Socket;
 import com.tigervnc.rdr.FdInStream;
 import com.tigervnc.rdr.FdOutStream;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import javafx.stage.Stage;
 import static org.assertj.core.api.BDDAssertions.then;
 
@@ -34,6 +34,7 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.testfx.framework.junit5.ApplicationTest;
+import ste.xtest.concurrent.SingleTaskExecutorService;
 
 public class VNCServiceLifecycleSpec extends ApplicationTest {
 
@@ -62,7 +63,6 @@ public class VNCServiceLifecycleSpec extends ApplicationTest {
     }
 
     @Test
-    @DisplayName("start() successfully connects, sets streams, and updates connected property")
     void start_success() throws InterruptedException {
         CountDownLatch connectedLatch = new CountDownLatch(1);
 
@@ -83,8 +83,7 @@ public class VNCServiceLifecycleSpec extends ApplicationTest {
     }
 
     @Test
-    @DisplayName("start() handles socket failure gracefully and cleans up state")
-    void start_failure() throws InterruptedException {
+    void connect_failure() throws InterruptedException {
         CountDownLatch closedLatch = new CountDownLatch(1);
 
         vncService = new VNCServiceStub() {
@@ -103,8 +102,7 @@ public class VNCServiceLifecycleSpec extends ApplicationTest {
     }
 
     @Test
-    @DisplayName("stop() interrupts RFB thread and close() shuts down socket")
-    void stop_interrupts_RFB_thread_and_close() throws Exception {
+    void disconnect_interrupts_RFB_thread_and_close() throws Exception {
         CountDownLatch connectedLatch = new CountDownLatch(1);
         CountDownLatch disconnectedLatch = new CountDownLatch(1);
 
@@ -126,4 +124,20 @@ public class VNCServiceLifecycleSpec extends ApplicationTest {
         then(vncService.connected.get()).isFalse();
         verify(mockSocket, timeout(1000)).shutdown();
     }
+
+    @Test
+    void reconnect_after_disconnection() throws Exception {
+        final AtomicInteger executed = new AtomicInteger(0);
+
+        vncService.executor = new SingleTaskExecutorService(() -> executed.incrementAndGet());
+
+        vncService.connect("127.0.0.1", 5900); vncService.disconnect();
+
+        then(executed.get()).isEqualTo(1);
+
+        vncService.connect("127.0.0.1", 5900); vncService.disconnect();
+
+        then(executed.get()).isEqualTo(2);
+    }
+
 }

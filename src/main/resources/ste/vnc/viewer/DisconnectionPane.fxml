@@ -1,14 +1,35 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.scene.canvas.Canvas?>
+<?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
 
-<fx:root xmlns:fx="http://javafx.com/fxml/1"
+<fx:root xmlns:fx="http://javafx.com"
          type="javafx.scene.layout.StackPane"
          fx:id="rootPane"
          stylesheets="@DisconnectionPane.css"
          fx:controller="ste.vnc.viewer.DisconnectionPaneController">
-    <Canvas fx:id="scrambleCanvas" />
-    <Label fx:id="message" styleClass="double-bordered-label" text="Connection to VNC server lost" />
+
+    <Canvas fx:id="scrambleCanvas"/>
+
+    <!-- This outer container can stretch all it wants; it is now invisible -->
+    <VBox alignment="CENTER">
+        <!-- The inner box handles the content footprint and the double borders -->
+        <VBox styleClass="double-bordered-label-inner"
+              maxWidth="420"
+              alignment="CENTER"
+              spacing="20">
+            <Label fx:id="message"
+                   styleClass="message"
+                   text="Connection to VNC server lost"
+                   wrapText="true"/>
+            <Button fx:id="reconnect"
+                    styleClass="retry-btn"
+                    maxWidth="Infinity"
+                    text="Retry connection"/>
+        </VBox>
+    </VBox>
+
 </fx:root>
