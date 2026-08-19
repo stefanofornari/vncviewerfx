@@ -18,6 +18,12 @@
     -color-bg-overlay: -phosphor-muted;
     -color-bg-inset:   -phosphor;
 
+    /* Foreground/text colors — used throughout the titlebar and dialogs.
+       Dark warm brown rather than flat black, to sit comfortably on the
+       cream background and stay in the same amber/phosphor family. */
+    -color-fg-default: rgba(43, 29, 12, 1.0);
+    -color-fg-muted:   rgba(43, 29, 12, 0.62);
+
     /* Interactive state colors */
     -color-neutral-subtle: rgb(255, 0, 0);
     -color-neutral-muted:  rgb(0, 255, 0);
@@ -49,4 +55,113 @@
 .menu-item:hover,
 .menu-item:focused {
     -fx-background-color: -phosphor-subtle;
+}
+
+.custom-titlebar {
+    -fx-background-color: -color-bg-default;
+    -fx-border-color: -color-border-muted;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 4 8 4 8;
+}
+
+.titlebar-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: -color-fg-default;
+    -fx-font-size: 12px;
+    -fx-padding: 2 6 2 6;
+    -fx-cursor: hand;
+    -fx-border-color: transparent;
+    -fx-border-width: 1;
+    -fx-border-radius: 3;
+    -fx-background-radius: 3;
+    -fx-min-width: 24px;
+    -fx-min-height: 24px;
+    -fx-max-width: 24px;
+    -fx-max-height: 24px;
+}
+
+.titlebar-button:hover {
+    -fx-background-color: -phosphor-subtle;
+}
+
+.titlebar-title {
+    -fx-text-fill: -color-fg-default;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-padding: 0 0 0 8;
+    -fx-alignment: center-left;
+}
+
+.about-dialog {
+    -fx-background-color: -color-bg-default;
+    -fx-padding: 24;
+    -fx-spacing: 16;
+    -fx-border-color: -color-border-muted;
+    -fx-border-width: 1;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-effect: dropshadow(gaussian, rgba(43,29,12,0.35), 28, 0, 0, 10);
+}
+
+.about-icon-frame {
+    -fx-background-color: -phosphor-subtle;
+    -fx-background-radius: 999;
+    -fx-border-color: -phosphor-muted;
+    -fx-border-width: 1;
+    -fx-border-radius: 999;
+    -fx-padding: 10;
+    -fx-min-width: 84;
+    -fx-min-height: 84;
+    -fx-max-width: 84;
+    -fx-max-height: 84;
+    -fx-alignment: center;
+}
+
+.about-separator .line {
+    -fx-border-color: -color-border-muted transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+    -fx-opacity: 0.6;
+}
+
+.about-title {
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -color-fg-default;
+}
+
+.about-version {
+    -fx-font-size: 12px;
+    -fx-text-fill: -color-fg-muted;
+}
+
+.about-text {
+    -fx-font-size: 13px;
+    -fx-text-fill: -color-fg-default;
+    -fx-line-spacing: 2;
+}
+
+.about-copyright {
+    -fx-font-size: 11px;
+    -fx-text-fill: -color-fg-muted;
+}
+
+.about-license {
+    -fx-font-size: 11px;
+    -fx-text-fill: -color-fg-muted;
+}
+
+.about-close-button {
+    -fx-background-color: -phosphor;
+    -fx-text-fill: -color-bg-default;
+    -fx-font-weight: bold;
+    -fx-padding: 6 16 6 16;
+    -fx-min-width: 96px;
+    -fx-cursor: hand;
+    -fx-border-color: transparent;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+}
+
+.about-close-button:hover {
+    -fx-background-color: -phosphor-muted;
 }

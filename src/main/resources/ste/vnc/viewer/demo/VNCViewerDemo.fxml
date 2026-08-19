@@ -2,23 +2,12 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 <?import ste.vnc.viewer.VNCViewer?>
+<?import ste.vnc.viewer.demo.CustomTitleBar?>
 
 
 <BorderPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="ste.vnc.viewer.demo.VNCViewerDemoController">
     <top>
-        <MenuBar>
-            <Menu text="File">
-                <MenuItem text="Connect..." onAction="#onConnect" accelerator="Ctrl+O"/>
-                <SeparatorMenuItem/>
-                <MenuItem text="Exit" onAction="#onExit" accelerator="Ctrl+Q"/>
-            </Menu>
-            <Menu text="View">
-                <MenuItem text="Full Screen" onAction="#onToggleFullScreen" accelerator="F11"/>
-            </Menu>
-            <Menu text="Help">
-                <MenuItem text="About" onAction="#onAbout"/>
-            </Menu>
-        </MenuBar>
+        <CustomTitleBar fx:id="customTitleBar"/>
     </top>
     <center>
         <HBox fillHeight="true">

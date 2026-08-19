@@ -23,9 +23,14 @@ import com.tigervnc.rfb.Security;
 import com.tigervnc.rfb.SecurityClient;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
+import javafx.scene.Scene;
 import javafx.scene.control.TextArea;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
 import javafx.stage.Stage;
 import ste.vnc.viewer.VNCViewer;
+import ste.vnc.viewer.demo.CustomTitleBar;
 
 
 public class VNCViewerDemoController {
@@ -37,16 +42,15 @@ public class VNCViewerDemoController {
     @FXML
     private VNCViewer viewer;
 
-    private Runnable onClose;
-
-    public Stage stage;
-
 
     private static final LogWriter logger = new LogWriter(VNCViewerDemoController.class.getName());
 
     static {
         logger.setLevel(100);
     }
+
+    @FXML
+    private CustomTitleBar customTitleBar;
 
     @FXML
     public void initialize() {
@@ -59,10 +63,26 @@ public class VNCViewerDemoController {
         Security.EnableSecType(Security.secTypeNone);
 
         Platform.runLater(() -> {
-            //Stage stage = (Stage) viewer.getScene().getWindow();
+            customTitleBar.title("VNC Viewer Demo");
+
+            customTitleBar.onFullscreen(this::onToggleFullScreen);
+            customTitleBar.onAbout(this::onAbout);
+            customTitleBar.onExit(this::onExit);
+
+            final Stage stage = stage();
             stage.titleProperty().bind(
                 viewer.uri.map(uri -> uri == null ? "Untitled App" : uri.toString())
             );
+
+            stage.setFullScreen(false);
+
+            Scene scene = infoText.getScene();
+            if (scene != null) {
+                KeyCombination quitShortcut = new KeyCodeCombination(
+                    KeyCode.Q, KeyCombination.SHORTCUT_DOWN
+                );
+                scene.getAccelerators().put(quitShortcut, this::onExit);
+            }
         });
     }
 
@@ -73,26 +93,47 @@ public class VNCViewerDemoController {
 
     @FXML
     private void onCloseWindow() {
-        if (stage != null) {
-            stage.close();
-        }
+        stage().close();
     }
 
-    @FXML
-    private void onExit() {
+    void onExit() {
         System.exit(0);
     }
 
     @FXML
     private void onToggleFullScreen() {
-        if (stage != null) {
-            stage.setFullScreen(!stage.isFullScreen());
-        }
+        final Stage stage = stage();
+        stage.setFullScreen(!stage.isFullScreen());
     }
 
     @FXML
     private void onAbout() {
-        // TODO
+        AboutDialog dialog = new AboutDialog();
+        dialog.setOnClose(() -> {
+            if (dialog.getScene() != null && dialog.getScene().getWindow() != null) {
+                dialog.getScene().getWindow().hide();
+            }
+        });
+
+        final Scene dialogScene = new javafx.scene.Scene(dialog);
+        // Make the Scene background transparent so the VBox rounded corners render smoothly
+        dialogScene.setFill(javafx.scene.paint.Color.TRANSPARENT);
+        dialogScene.getStylesheets().add(getClass().getResource("VNCViewerDemo.css").toExternalForm());
+
+        javafx.stage.Stage dialogStage = new javafx.stage.Stage();
+        dialogStage.initOwner(stage());
+        // Use TRANSPARENT style instead of UNDECORATED
+        dialogStage.initStyle(javafx.stage.StageStyle.TRANSPARENT);
+        dialogStage.setScene(dialogScene);
+        dialogStage.show();
+}
+
+    private Stage stage() {
+        if (infoText != null) {
+            return (Stage)infoText.getScene().getWindow();
+        }
+
+        throw new IllegalStateException("no Stage available!");
     }
 
 }
