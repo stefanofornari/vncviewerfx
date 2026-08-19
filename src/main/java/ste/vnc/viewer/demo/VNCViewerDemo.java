@@ -22,6 +22,7 @@ import javafx.application.Application;
 import javafx.stage.Stage;
 
 import com.tigervnc.rfb.LogWriter;
+import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -57,8 +58,9 @@ public class VNCViewerDemo extends Application {
 
             primaryStage.initStyle(StageStyle.UNDECORATED);
             primaryStage.setWidth(768); primaryStage.setHeight(1024);
-            primaryStage.setTitle("VNC Viewer Demo");
             primaryStage.setScene(scene);
+
+            Platform.runLater(() -> primaryStage.setTitle("VNC Viewer Demo - " + controller.viewer.getUri()));
 
             primaryStage.show();
 

@@ -1,0 +1,42 @@
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<fx:root xmlns:fx="http://javafx.com/fxml/1"
+         fx:id="root" fx:controller="ste.vnc.viewer.demo.AboutDialogController"
+         type="VBox" spacing="16.0"
+         prefWidth="420.0" maxWidth="420.0"
+         alignment="CENTER"
+         styleClass="about-dialog"
+>
+    <children>
+        <VBox spacing="8.0" alignment="CENTER">
+            <children>
+                <StackPane styleClass="about-icon-frame">
+                    <children>
+                        <ImageView fx:id="appIcon" fitHeight="64.0" fitWidth="64.0" pickOnBounds="true" preserveRatio="true"/>
+                    </children>
+                </StackPane>
+                <Label text="VNC Viewer Demo" styleClass="about-title"/>
+                <Label text="Version ${project.version}" styleClass="about-version"/>
+            </children>
+        </VBox>
+        <Separator styleClass="about-separator"/>
+        <Label text="A JavaFX demo application showcasing the VNCViewerFX component.&#10;&#10;This application lets you connect to a VNC server on vnc://localhost:5905 and interact with a remote desktop directly from your JavaFX application."
+               styleClass="about-text"
+               wrapText="true"
+               textAlignment="CENTER"
+               maxWidth="Infinity"/>
+        <Separator styleClass="about-separator"/>
+        <VBox spacing="4.0" alignment="CENTER">
+            <children>
+                <Label text="Copyright (C) 2026 VNC Viewer Contributors" styleClass="about-copyright"/>
+                <Label text="Licensed under the GNU General Public License v2.0" styleClass="about-license"/>
+            </children>
+        </VBox>
+        <Button text="Close" fx:id="closeButton" styleClass="about-close-button" defaultButton="true"/>
+    </children>
+</fx:root>

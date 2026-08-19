@@ -30,27 +30,23 @@ import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.stage.Stage;
 import ste.vnc.viewer.VNCViewer;
-import ste.vnc.viewer.demo.CustomTitleBar;
-
 
 public class VNCViewerDemoController {
 
     @FXML
-    private TextArea infoText;
+    public TextArea infoText;
     @FXML
-    private RectangleTracePane rectangleTracePane;
+    public RectangleTracePane rectangleTracePane;
     @FXML
-    private VNCViewer viewer;
-
+    public VNCViewer viewer;
+    @FXML
+    public CustomTitleBar titleBar;
 
     private static final LogWriter logger = new LogWriter(VNCViewerDemoController.class.getName());
 
     static {
         logger.setLevel(100);
     }
-
-    @FXML
-    private CustomTitleBar customTitleBar;
 
     @FXML
     public void initialize() {
@@ -63,18 +59,9 @@ public class VNCViewerDemoController {
         Security.EnableSecType(Security.secTypeNone);
 
         Platform.runLater(() -> {
-            customTitleBar.title("VNC Viewer Demo");
-
-            customTitleBar.onFullscreen(this::onToggleFullScreen);
-            customTitleBar.onAbout(this::onAbout);
-            customTitleBar.onExit(this::onExit);
-
-            final Stage stage = stage();
-            stage.titleProperty().bind(
-                viewer.uri.map(uri -> uri == null ? "Untitled App" : uri.toString())
-            );
-
-            stage.setFullScreen(false);
+            titleBar.onFullscreen(this::onToggleFullScreen);
+            titleBar.onAbout(this::onAbout);
+            titleBar.onExit(this::onExit);
 
             Scene scene = infoText.getScene();
             if (scene != null) {
