@@ -18,14 +18,15 @@
 package ste.vnc.viewer.demo;
 
 import atlantafx.base.theme.PrimerLight;
-import javafx.application.Application;
-import javafx.stage.Stage;
-
 import com.tigervnc.rfb.LogWriter;
+import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.Region;
+import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import ste.vnc.viewer.VNCViewer;
 
@@ -56,6 +57,7 @@ public class VNCViewerDemo extends Application {
             final Scene scene = new Scene(root, 768, 1024);
             scene.getStylesheets().add(getClass().getResource("VNCViewerDemo.css").toExternalForm());
 
+            primaryStage.setResizable(true);
             primaryStage.initStyle(StageStyle.UNDECORATED);
             primaryStage.setWidth(768); primaryStage.setHeight(1024);
             primaryStage.setScene(scene);
@@ -66,7 +68,9 @@ public class VNCViewerDemo extends Application {
 
         } catch (Exception e) {
             vlog.error("Failed to start FX viewer: " + e.getMessage());
-            // If startup fails, just exit the application
+            if (e.getCause() != null) {
+                vlog.error("Caused by: " + e.getCause().getMessage());
+            }
             e.printStackTrace();
             primaryStage.close();
         }

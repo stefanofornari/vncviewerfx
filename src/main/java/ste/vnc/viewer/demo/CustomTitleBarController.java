@@ -25,6 +25,9 @@ import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.stage.Stage;
@@ -68,6 +71,7 @@ public class CustomTitleBarController {
             fullscreenItem = new MenuItem("Fullscreen");
             aboutItem = new MenuItem("About");
             exitItem = new MenuItem("Exit");
+            exitItem.setAccelerator(new KeyCodeCombination(KeyCode.Q, KeyCombination.SHORTCUT_DOWN));
 
             burgerMenu = new ContextMenu();
             burgerMenu.getItems().addAll(fullscreenItem, new SeparatorMenuItem(), aboutItem, new SeparatorMenuItem(), exitItem);

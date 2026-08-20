@@ -61,11 +61,6 @@ public class DisconnectionPane extends StackPane {
         });
     }
 
-    @Override
-    public boolean isResizable() {
-        return true;
-    }
-
     public void onRetry(final Runnable action) {
         controller.onRetry(action);
     }

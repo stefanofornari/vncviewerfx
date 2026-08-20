@@ -49,6 +49,12 @@ public class VNCViewerDemoController {
     }
 
     @FXML
+    public javafx.scene.layout.Region resizeN, resizeS, resizeE, resizeW, resizeNE, resizeNW, resizeSE, resizeSW;
+
+    static final double MIN_WIDTH = 400.0;
+    static final double MIN_HEIGHT = 300.0;
+
+    @FXML
     public void initialize() {
         // Enable viewer parameters so Configuration.setParam() can see them
         Configuration.enableViewerParams();
@@ -70,7 +76,102 @@ public class VNCViewerDemoController {
                 );
                 scene.getAccelerators().put(quitShortcut, this::onExit);
             }
+
+            setupResizeHandlers();
         });
+    }
+
+    private void setupResizeHandlers() {
+        final double[] dragStart = new double[2];
+        final double[] stageStart = new double[4];
+
+        java.util.function.Consumer<javafx.scene.layout.Region> setupResize = region -> {
+            region.setOnMousePressed(e -> {
+                if (e.getButton() != javafx.scene.input.MouseButton.PRIMARY) {
+                    return;
+                }
+                Stage stage = stage();
+                dragStart[0] = e.getScreenX();
+                dragStart[1] = e.getScreenY();
+                stageStart[0] = stage.getX();
+                stageStart[1] = stage.getY();
+                stageStart[2] = stage.getWidth();
+                stageStart[3] = stage.getHeight();
+            });
+
+            region.setOnMouseDragged(e -> {
+                if (!e.isPrimaryButtonDown()) {
+                    return;
+                }
+                double dx = e.getScreenX() - dragStart[0];
+                double dy = e.getScreenY() - dragStart[1];
+
+                double newX = stageStart[0];
+                double newY = stageStart[1];
+                double newW = stageStart[2];
+                double newH = stageStart[3];
+
+                javafx.scene.Cursor cursor = region.getCursor();
+
+                if (cursor == javafx.scene.Cursor.N_RESIZE || cursor == javafx.scene.Cursor.NW_RESIZE || cursor == javafx.scene.Cursor.NE_RESIZE) {
+                    newY = stageStart[1] + dy;
+                    newH = stageStart[3] - dy;
+                }
+                if (cursor == javafx.scene.Cursor.S_RESIZE || cursor == javafx.scene.Cursor.SW_RESIZE || cursor == javafx.scene.Cursor.SE_RESIZE) {
+                    newH = stageStart[3] + dy;
+                }
+                if (cursor == javafx.scene.Cursor.W_RESIZE || cursor == javafx.scene.Cursor.NW_RESIZE || cursor == javafx.scene.Cursor.SW_RESIZE) {
+                    newX = stageStart[0] + dx;
+                    newW = stageStart[2] - dx;
+                }
+                if (cursor == javafx.scene.Cursor.E_RESIZE || cursor == javafx.scene.Cursor.NE_RESIZE || cursor == javafx.scene.Cursor.SE_RESIZE) {
+                    newW = stageStart[2] + dx;
+                }
+
+                if (newW < MIN_WIDTH) {
+                    if (cursor == javafx.scene.Cursor.W_RESIZE || cursor == javafx.scene.Cursor.NW_RESIZE || cursor == javafx.scene.Cursor.SW_RESIZE) {
+                        newX = stageStart[0] + stageStart[2] - MIN_WIDTH;
+                    }
+                    newW = MIN_WIDTH;
+                }
+                if (newH < MIN_HEIGHT) {
+                    if (cursor == javafx.scene.Cursor.N_RESIZE || cursor == javafx.scene.Cursor.NW_RESIZE || cursor == javafx.scene.Cursor.NE_RESIZE) {
+                        newY = stageStart[1] + stageStart[3] - MIN_HEIGHT;
+                    }
+                    newH = MIN_HEIGHT;
+                }
+
+                Stage stage = stage();
+                stage.setX(newX);
+                stage.setY(newY);
+                stage.setWidth(newW);
+                stage.setHeight(newH);
+            });
+        };
+
+        setupResize.accept(resizeN);
+        resizeN.setCursor(javafx.scene.Cursor.N_RESIZE);
+        
+        setupResize.accept(resizeS);
+        resizeS.setCursor(javafx.scene.Cursor.S_RESIZE);
+        
+        setupResize.accept(resizeE);
+        resizeE.setCursor(javafx.scene.Cursor.E_RESIZE);
+        
+        setupResize.accept(resizeW);
+        resizeW.setCursor(javafx.scene.Cursor.W_RESIZE);
+        
+        setupResize.accept(resizeNE);
+        resizeNE.setCursor(javafx.scene.Cursor.NE_RESIZE);
+        
+        setupResize.accept(resizeNW);
+        resizeNW.setCursor(javafx.scene.Cursor.NW_RESIZE);
+        
+        setupResize.accept(resizeSE);
+        resizeSE.setCursor(javafx.scene.Cursor.SE_RESIZE);
+        
+        setupResize.accept(resizeSW);
+        resizeSW.setCursor(javafx.scene.Cursor.SW_RESIZE);
     }
 
     @FXML

@@ -5,18 +5,30 @@
 <?import ste.vnc.viewer.demo.CustomTitleBar?>
 
 
-<BorderPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="ste.vnc.viewer.demo.VNCViewerDemoController">
-    <top>
-        <CustomTitleBar fx:id="titleBar"/>
-    </top>
-    <center>
-        <HBox fillHeight="true">
-            <TextArea fx:id="infoText"
-                      wrapText="true" editable="true" prefWidth="200.0"
-                      text="This area demonstrates clipboard integration between the local system and the remote VNC desktop.&#10;&#10;You can cut or copy text here and paste it into applications on the remote desktop using the standard paste shortcut (usually Ctrl+V).&#10;&#10;Likewise, text copied on the remote desktop is automatically transferred to the local clipboard and can be pasted here or into other local applications."
-            />
-            <VNCViewer fx:id="viewer" connect="AUTO" uri="vnc://localhost:5905"></VNCViewer>
-            <!--RectangleTracePane fx:id="rectangleTracePane" minWidth="400.0" /-->
-        </HBox>
-    </center>
-</BorderPane>
+<AnchorPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="ste.vnc.viewer.demo.VNCViewerDemoController">
+    <BorderPane AnchorPane.topAnchor="0.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0">
+        <top>
+            <CustomTitleBar fx:id="titleBar"/>
+        </top>
+        <center>
+            <HBox fillHeight="true">
+                <TextArea fx:id="infoText"
+                          wrapText="true" editable="true" prefWidth="200.0"
+                          text="This area demonstrates clipboard integration between the local system and the remote VNC desktop.&#10;&#10;You can cut or copy text here and paste it into applications on the remote desktop using the standard paste shortcut (usually Ctrl+V).&#10;&#10;Likewise, text copied on the remote desktop is automatically transferred to the local clipboard and can be pasted here or into other local applications."
+                />
+                <VNCViewer fx:id="viewer" connect="AUTO" uri="vnc://localhost:5905"></VNCViewer>
+                <!--RectangleTracePane fx:id="rectangleTracePane" minWidth="400.0" /-->
+            </HBox>
+        </center>
+    </BorderPane>
+
+    <!-- Resize Regions -->
+    <Region fx:id="resizeN" id="resize-N_RESIZE" style="-fx-background-color: transparent;" AnchorPane.topAnchor="0.0" AnchorPane.leftAnchor="6.0" AnchorPane.rightAnchor="6.0" prefHeight="6.0" minHeight="6.0" maxHeight="6.0"/>
+    <Region fx:id="resizeS" id="resize-S_RESIZE" style="-fx-background-color: transparent;" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="6.0" AnchorPane.rightAnchor="6.0" prefHeight="6.0" minHeight="6.0" maxHeight="6.0"/>
+    <Region fx:id="resizeE" id="resize-E_RESIZE" style="-fx-background-color: transparent;" AnchorPane.topAnchor="6.0" AnchorPane.bottomAnchor="6.0" AnchorPane.rightAnchor="0.0" prefWidth="6.0" minWidth="6.0" maxWidth="6.0"/>
+    <Region fx:id="resizeW" id="resize-W_RESIZE" style="-fx-background-color: transparent;" AnchorPane.topAnchor="6.0" AnchorPane.bottomAnchor="6.0" AnchorPane.leftAnchor="0.0" prefWidth="6.0" minWidth="6.0" maxWidth="6.0"/>
+    <Region fx:id="resizeNE" id="resize-NE_RESIZE" style="-fx-background-color: transparent;" AnchorPane.topAnchor="0.0" AnchorPane.rightAnchor="0.0" prefWidth="6.0" minWidth="6.0" maxWidth="6.0" prefHeight="6.0" minHeight="6.0" maxHeight="6.0"/>
+    <Region fx:id="resizeNW" id="resize-NW_RESIZE" style="-fx-background-color: transparent;" AnchorPane.topAnchor="0.0" AnchorPane.leftAnchor="0.0" prefWidth="6.0" minWidth="6.0" maxWidth="6.0" prefHeight="6.0" minHeight="6.0" maxHeight="6.0"/>
+    <Region fx:id="resizeSE" id="resize-SE_RESIZE" style="-fx-background-color: transparent;" AnchorPane.bottomAnchor="0.0" AnchorPane.rightAnchor="0.0" prefWidth="6.0" minWidth="6.0" maxWidth="6.0" prefHeight="6.0" minHeight="6.0" maxHeight="6.0"/>
+    <Region fx:id="resizeSW" id="resize-SW_RESIZE" style="-fx-background-color: transparent;" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" prefWidth="6.0" minWidth="6.0" maxWidth="6.0" prefHeight="6.0" minHeight="6.0" maxHeight="6.0"/>
+</AnchorPane>

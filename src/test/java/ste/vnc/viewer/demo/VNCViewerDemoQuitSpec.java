@@ -41,8 +41,8 @@ class VNCViewerDemoQuitSpec extends ApplicationTest {
         FXMLLoader loader = new FXMLLoader(getClass().getResource("VNCViewerDemo.fxml"));
         VNCViewerDemoQuitController controller = new VNCViewerDemoQuitController();
         controller.exitInvoked = exitInvoked;
-        loader.setController(controller);
-        BorderPane root = loader.load();
+        loader.setControllerFactory(param -> controller);
+        javafx.scene.layout.AnchorPane root = loader.load();
 
         Scene scene = new Scene(root, 768, 1024);
         stage.setScene(scene);
