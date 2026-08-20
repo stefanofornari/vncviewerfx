@@ -31,7 +31,7 @@ import javafx.util.Duration;
 
 public class VNCViewerController {
 
-    final Logger logger = Logger.getLogger(getClass().getName());
+    final Logger log = Logger.getLogger(getClass().getName());
 
     // Last clipboard contents that originated from the server, used to
     // avoid echoing clipboard updates straight back to the server.
@@ -55,6 +55,8 @@ public class VNCViewerController {
 
     @FXML
     public void initialize() {
+        log.finest(() -> "initializing the controller");
+
         vnc = newVNCService();
 
         screen.imageProperty().bind(vnc.image);
@@ -65,7 +67,7 @@ public class VNCViewerController {
         viewer.keyboardListener = new KeyboardInputListener(vnc, eventBridge);
 
         vnc.clipboard.addListener((o, ov, nv) -> {
-            logger.finest("received clipboard content from %s: %s".formatted(o, nv));
+            log.finest("received clipboard content from %s: %s".formatted(o, nv));
             setServerClipboardText(nv);
         });
 
@@ -91,11 +93,11 @@ public class VNCViewerController {
 
                         String toSend = current;
 
-                        logger.finest("Sending ClientCutText, length=" + toSend.length());
+                        log.finest("Sending ClientCutText, length=" + toSend.length());
                         vnc.writeClientCutText(toSend, toSend.length());
                     }
                 } catch (Exception ex) {
-                    logger.info("Clipboard sync failed: " + ex.toString());
+                    log.info("Clipboard sync failed: " + ex.toString());
                 }
             })
         );
@@ -167,7 +169,7 @@ public class VNCViewerController {
         //
         viewer.sceneProperty().addListener((obs, oldScene, newScene) -> {
             if (newScene == null) {
-                logger.info("closing vnc connection");
+                log.info("closing vnc connection");
                 if (vnc != null) {
                     vnc.close();
                 }
@@ -189,6 +191,8 @@ public class VNCViewerController {
                 connect();
             }
         });
+
+        log.finest(() -> "controller initialized");
     }
 
     public void setServerClipboardText(String text) {

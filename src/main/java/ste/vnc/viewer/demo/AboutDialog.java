@@ -26,12 +26,16 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.VBox;
 
 import java.io.IOException;
+import java.util.logging.Logger;
 
 public class AboutDialog extends VBox {
 
+    private final Logger log = Logger.getLogger(getClass().getName());
     public AboutDialogController controller;
 
     public AboutDialog() {
+        log.finest(() -> "creating a new component");
+
         FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("AboutDialog.fxml"));
         fxmlLoader.setRoot(this);
         try {
@@ -40,6 +44,8 @@ public class AboutDialog extends VBox {
         } catch (IOException exception) {
             throw new RuntimeException("Failed to load AboutDialog.fxml", exception);
         }
+
+        log.finest("component created");
     }
 
     public void setOnClose(Runnable handler) {

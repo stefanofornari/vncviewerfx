@@ -27,7 +27,11 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.StrokeLineCap;
 import javafx.scene.shape.StrokeLineJoin;
 
+import java.util.logging.Logger;
+
 public class AboutDialogController {
+
+    final Logger log = Logger.getLogger(getClass().getName());
 
     @FXML
     VBox root;
@@ -39,8 +43,12 @@ public class AboutDialogController {
     Button closeButton;
 
     public void initialize() {
+        log.finest(() -> "initializing the controller");
+
         generateAppIcon();
         closeButton.setOnAction(e -> close());
+
+        log.finest(() -> "controller initialized");
     }
 
     private void generateAppIcon() {

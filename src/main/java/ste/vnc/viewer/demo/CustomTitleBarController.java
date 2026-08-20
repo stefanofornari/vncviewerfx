@@ -18,6 +18,7 @@
 package ste.vnc.viewer.demo;
 
 import atlantafx.base.theme.Styles;
+import java.util.function.Consumer;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
@@ -34,7 +35,15 @@ import javafx.stage.Stage;
 import org.kordamp.ikonli.coreui.CoreUiFree;
 import org.kordamp.ikonli.javafx.FontIcon;
 
+import java.util.logging.Logger;
+import javafx.scene.Cursor;
+import javafx.scene.layout.Region;
+import static ste.vnc.viewer.demo.VNCViewerDemoController.MIN_HEIGHT;
+import static ste.vnc.viewer.demo.VNCViewerDemoController.MIN_WIDTH;
+
 public class CustomTitleBarController {
+
+    final Logger log = Logger.getLogger(getClass().getName());
 
     @FXML
     Button burgerButton;
@@ -65,6 +74,8 @@ public class CustomTitleBarController {
 
     @FXML
     public void initialize() {
+        log.finest(() -> "initializing the controller");
+
         Platform.runLater(() -> {
             final Stage stage = stage();
 
@@ -112,6 +123,8 @@ public class CustomTitleBarController {
             titleBar.title.bindBidirectional(stage.titleProperty());
             titleBar.title.bindBidirectional(titleBar.controller.titleLabel.textProperty());
         });
+
+        log.finest(() -> "controller initialized");
     }
 
     @FXML
@@ -189,4 +202,100 @@ public class CustomTitleBarController {
 
         return stage;
     }
+
+    public void setupResizeHandlers(
+            Region resizeN, Region resizeS, Region resizeE, Region resizeW,
+            Region resizeNE, Region resizeNW, Region resizeSE, Region resizeSW) {
+        final double[] dragStart = new double[2];
+        final double[] stageStart = new double[4];
+
+        Consumer<Region> setupResize = region -> {
+            region.setOnMousePressed(e -> {
+                if (e.getButton() != MouseButton.PRIMARY) {
+                    return;
+                }
+                Stage stage = stage();
+                dragStart[0] = e.getScreenX();
+                dragStart[1] = e.getScreenY();
+                stageStart[0] = stage.getX();
+                stageStart[1] = stage.getY();
+                stageStart[2] = stage.getWidth();
+                stageStart[3] = stage.getHeight();
+            });
+
+            region.setOnMouseDragged(e -> {
+                if (!e.isPrimaryButtonDown()) {
+                    return;
+                }
+                double dx = e.getScreenX() - dragStart[0];
+                double dy = e.getScreenY() - dragStart[1];
+
+                double newX = stageStart[0];
+                double newY = stageStart[1];
+                double newW = stageStart[2];
+                double newH = stageStart[3];
+
+                Cursor cursor = region.getCursor();
+
+                if (cursor == Cursor.N_RESIZE || cursor == Cursor.NW_RESIZE || cursor == Cursor.NE_RESIZE) {
+                    newY = stageStart[1] + dy;
+                    newH = stageStart[3] - dy;
+                }
+                if (cursor == Cursor.S_RESIZE || cursor == Cursor.SW_RESIZE || cursor == Cursor.SE_RESIZE) {
+                    newH = stageStart[3] + dy;
+                }
+                if (cursor == Cursor.W_RESIZE || cursor == Cursor.NW_RESIZE || cursor == Cursor.SW_RESIZE) {
+                    newX = stageStart[0] + dx;
+                    newW = stageStart[2] - dx;
+                }
+                if (cursor == Cursor.E_RESIZE || cursor == Cursor.NE_RESIZE || cursor == Cursor.SE_RESIZE) {
+                    newW = stageStart[2] + dx;
+                }
+
+                if (newW < MIN_WIDTH) {
+                    if (cursor == Cursor.W_RESIZE || cursor == Cursor.NW_RESIZE || cursor == Cursor.SW_RESIZE) {
+                        newX = stageStart[0] + stageStart[2] - MIN_WIDTH;
+                    }
+                    newW = MIN_WIDTH;
+                }
+                if (newH < MIN_HEIGHT) {
+                    if (cursor == Cursor.N_RESIZE || cursor == Cursor.NW_RESIZE || cursor == Cursor.NE_RESIZE) {
+                        newY = stageStart[1] + stageStart[3] - MIN_HEIGHT;
+                    }
+                    newH = MIN_HEIGHT;
+                }
+
+                Stage stage = stage();
+                stage.setX(newX);
+                stage.setY(newY);
+                stage.setWidth(newW);
+                stage.setHeight(newH);
+            });
+        };
+
+        setupResize.accept(resizeN);
+        resizeN.setCursor(Cursor.N_RESIZE);
+
+        setupResize.accept(resizeS);
+        resizeS.setCursor(Cursor.S_RESIZE);
+
+        setupResize.accept(resizeE);
+        resizeE.setCursor(Cursor.E_RESIZE);
+
+        setupResize.accept(resizeW);
+        resizeW.setCursor(Cursor.W_RESIZE);
+
+        setupResize.accept(resizeNE);
+        resizeNE.setCursor(Cursor.NE_RESIZE);
+
+        setupResize.accept(resizeNW);
+        resizeNW.setCursor(Cursor.NW_RESIZE);
+
+        setupResize.accept(resizeSE);
+        resizeSE.setCursor(Cursor.SE_RESIZE);
+
+        setupResize.accept(resizeSW);
+        resizeSW.setCursor(Cursor.SW_RESIZE);
+    }
+
 }

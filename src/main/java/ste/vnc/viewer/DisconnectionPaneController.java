@@ -50,7 +50,7 @@ public class DisconnectionPaneController {
     @FXML
     public Button reconnect;
 
-    final Logger logger = Logger.getLogger(getClass().getName());
+    final Logger log = Logger.getLogger(getClass().getName());
 
     protected AnimationTimer scrambleTimer;
     private long lastUpdateNanos = 0;
@@ -68,6 +68,8 @@ public class DisconnectionPaneController {
 
     @FXML
     public void initialize() {
+        log.finest(() -> "initializing the controller");
+
         scrambleTimer = new AnimationTimer() {
             @Override
             public void handle(long now) {
@@ -89,6 +91,8 @@ public class DisconnectionPaneController {
         });
 
         reconnect.setOnAction(e -> attemptRetry());
+
+        log.finest(() -> "controller initialized");
     }
 
     /**
@@ -164,7 +168,7 @@ public class DisconnectionPaneController {
             try {
                 onRetry.run();
             } catch (RuntimeException e) {
-                logger.warning(() -> "failed to reconnect");
+                log.warning(() -> "failed to reconnect");
             }
         }
 

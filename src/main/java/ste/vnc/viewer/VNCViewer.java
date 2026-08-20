@@ -55,6 +55,8 @@ import javafx.scene.control.ScrollPane;
  */
 public class VNCViewer extends ScrollPane {
 
+    private final Logger log = Logger.getLogger(getClass().getName());
+
     public enum ConnectionMode {
         AUTO, MANUAL
     }
@@ -68,12 +70,12 @@ public class VNCViewer extends ScrollPane {
 
     protected final VNCViewerController controller;
 
-    private final Logger logger = Logger.getLogger(getClass().getName());
-
     // TODO remove: private final AtomicBoolean redrawPending = new AtomicBoolean();
     private ConnectionMode connectionMode = ConnectionMode.MANUAL;
 
     public VNCViewer() {
+        log.finest(() -> "creating a new component");
+
         FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("VNCViewer.fxml"));
         fxmlLoader.setRoot(this);
 
@@ -104,6 +106,8 @@ public class VNCViewer extends ScrollPane {
         controller.screen.setOnKeyReleased(this::handleKeyReleased);
         controller.screen.setOnKeyTyped(this::handleKeyTyped);
         controller.screen.setOnMouseEntered(e -> requestFocus());
+
+        log.finest(() -> "component created");
     }
 
     public void setConnect(final ConnectionMode connect) {

@@ -21,16 +21,20 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.layout.HBox;
 
 import java.io.IOException;
+import java.util.logging.Logger;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 
 public class CustomTitleBar extends HBox {
 
+    private final Logger log = Logger.getLogger(getClass().getName());
     public final StringProperty title = new SimpleStringProperty();
 
     public CustomTitleBarController controller;
 
     public CustomTitleBar() {
+        log.finest(() -> "creating a new component");
+
         FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("CustomTitleBar.fxml"));
         fxmlLoader.setRoot(this);
         try {
@@ -39,6 +43,16 @@ public class CustomTitleBar extends HBox {
         } catch (IOException exception) {
             throw new RuntimeException("Failed to load CustomTitleBar.fxml", exception);
         }
+
+        log.finest("component created");
+    }
+
+    public void setTitle(final String title) {
+        this.title.set(title);
+    }
+
+    public String getTitle() {
+        return this.title.get();
     }
 
     public void onFullscreen(final Runnable handler) {

@@ -21,6 +21,7 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.layout.StackPane;
 
 import java.io.IOException;
+import java.util.logging.Logger;
 
 /**
  * A JavaFX pane that displays an animated disconnection overlay.
@@ -31,12 +32,16 @@ import java.io.IOException;
  */
 public class DisconnectionPane extends StackPane {
 
+    final Logger log = Logger.getLogger(getClass().getName());
+
     public final DisconnectionPaneController controller;
 
     /**
      * Creates a new DisconnectionPane with animated scramble effect.
      */
     public DisconnectionPane() {
+        log.finest(() -> "creating a new component");
+
         getStyleClass().add("disconnection-pane");
 
         FXMLLoader loader = new FXMLLoader(
@@ -59,6 +64,8 @@ public class DisconnectionPane extends StackPane {
                 controller.stopScramble();
             }
         });
+
+        log.finest("component created");
     }
 
     public void onRetry(final Runnable action) {
