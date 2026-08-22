@@ -20,7 +20,9 @@ package ste.vnc.viewer;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javafx.animation.AnimationTimer;
+import javafx.util.Duration;
 import static org.assertj.core.api.BDDAssertions.then;
+import static org.assertj.core.api.BDDAssertions.thenThrownBy;
 
 import javafx.stage.Stage;
 import static org.awaitility.Awaitility.await;
@@ -111,6 +113,21 @@ class DisconnectionPaneTest extends ApplicationTest {
         interact(() -> disconnectionPane.setVisible(true));
 
         then(disconnectionPane.controller.reconnect.getText()).isEqualTo("Retry connection (10s)");
+    }
+
+    @Test
+    void reconnect_button_shows_custom_countdown_when_timeout_is_set() {
+        disconnectionPane.setReconnectTimeout(Duration.seconds(5));
+
+        interact(() -> disconnectionPane.setVisible(true));
+
+        then(disconnectionPane.controller.reconnect.getText()).isEqualTo("Retry connection (5s)");
+    }
+
+    @Test
+    void invalid_reconnect_timeout_throws_illegal_argument_exception() {
+        thenThrownBy(() -> disconnectionPane.setReconnectTimeout(Duration.seconds(-1)))
+            .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

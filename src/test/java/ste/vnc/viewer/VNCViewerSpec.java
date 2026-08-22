@@ -19,7 +19,9 @@ package ste.vnc.viewer;
 
 import java.net.URI;
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.util.Duration;
 import static org.assertj.core.api.BDDAssertions.then;
+import static org.assertj.core.api.BDDAssertions.thenThrownBy;
 
 import javafx.scene.Node;
 import javafx.scene.Scene;
@@ -99,6 +101,64 @@ class VNCViewerSpec extends ApplicationTest {
         viewer.uri.set(URI.create("vnc://192.168.1.100:5902"));
 
         then(viewer.uri.get()).isEqualTo(URI.create("vnc://192.168.1.100:5902"));
+    }
+
+    @Test
+    public void should_have_default_reconnect_timeout_of_10_seconds() {
+        then(viewer.getReconnectTimeout()).isEqualTo(Duration.seconds(10));
+    }
+
+    @Test
+    public void should_set_and_get_reconnect_timeout() {
+        viewer.setReconnectTimeout(Duration.seconds(30));
+
+        then(viewer.getReconnectTimeout()).isEqualTo(Duration.seconds(30));
+    }
+
+    @Test
+    public void should_set_and_get_reconnect_timeout_via_aliases() {
+        viewer.reconnectTimeout(Duration.seconds(25));
+
+        then(viewer.reconnectTimeout()).isEqualTo(Duration.seconds(25));
+    }
+
+    @Test
+    public void should_throw_on_negative_reconnect_timeout() {
+        thenThrownBy(() -> viewer.setReconnectTimeout(Duration.seconds(-1)))
+            .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    public void should_support_javafx_property_binding_for_reconnect_timeout() {
+        SimpleObjectProperty<Duration> source =
+            new SimpleObjectProperty<>(Duration.seconds(15));
+
+        viewer.reconnectTimeoutProperty().bind(source);
+
+        then(viewer.getReconnectTimeout()).isEqualTo(Duration.seconds(15));
+
+        source.set(Duration.seconds(25));
+
+        then(viewer.getReconnectTimeout()).isEqualTo(Duration.seconds(25));
+    }
+
+    @Test
+    public void reconnect_timeout_is_applied_to_disconnection_pane() {
+        viewer.setReconnectTimeout(Duration.seconds(20));
+
+        then(viewer.controller.disconnectionPane.getReconnectTimeout())
+            .isEqualTo(Duration.seconds(20));
+    }
+
+    @Test
+    public void reconnect_timeout_change_propagates_to_disconnection_pane() {
+        then(viewer.controller.disconnectionPane.getReconnectTimeout())
+            .isEqualTo(Duration.seconds(10));
+
+        viewer.setReconnectTimeout(Duration.seconds(45));
+
+        then(viewer.controller.disconnectionPane.getReconnectTimeout())
+            .isEqualTo(Duration.seconds(45));
     }
 
     @Test

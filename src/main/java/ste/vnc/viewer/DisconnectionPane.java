@@ -19,6 +19,7 @@ package ste.vnc.viewer;
 
 import javafx.fxml.FXMLLoader;
 import javafx.scene.layout.StackPane;
+import javafx.util.Duration;
 
 import java.io.IOException;
 import java.util.logging.Logger;
@@ -67,8 +68,15 @@ public class DisconnectionPane extends StackPane {
 
         log.finest("component created");
     }
-
     public void onRetry(final Runnable action) {
         controller.onRetry(action);
+    }
+
+    public Duration getReconnectTimeout() {
+        return controller.getReconnectTimeout();
+    }
+
+    public void setReconnectTimeout(Duration value) {
+        controller.setReconnectTimeout(value);
     }
 }

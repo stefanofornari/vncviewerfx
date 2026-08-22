@@ -132,7 +132,10 @@ public class VNCViewerController {
         });
         */
         viewer.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
-            viewer.requestFocus();
+            // Do NOT call requestFocus() here: it can trigger a transient
+            // focus-lost event that calls releaseAllKeys(), prematurely
+            // releasing modifier keys (e.g. Shift) before the modified key
+            // reaches the server. Focus is already requested on mouseEntered.
             viewer.handleKeyPressed(e);
             e.consume();
         });
@@ -160,6 +163,9 @@ public class VNCViewerController {
         disconnectionPane.visibleProperty().bind(viewer.connected.not());
         disconnectionPane.managedProperty().bind(disconnectionPane.visibleProperty());
         disconnectionPane.onRetry(this::connect);
+        disconnectionPane.setReconnectTimeout(viewer.getReconnectTimeout());
+        viewer.reconnectTimeoutProperty().addListener((o, oldVal, newVal) ->
+            disconnectionPane.setReconnectTimeout(newVal));
 
         screen.visibleProperty().bind(viewer.connected);
         screen.managedProperty().bind(screen.visibleProperty());

@@ -22,6 +22,7 @@ Reusable JavaFX component for embedding a VNC viewer and interacting with a VNC 
 - **[US-000019](component/US-000019/US-000019.md)**: AUTO/MANUAL connection mode
 - **[US-000020](component/US-000020/US-000020.md)**: Connection URI
 - **[US-000021](component/US-000021/US-000021.md)**: Auto-reconnect with 10s countdown and retry button
+- **[US-000022](component/US-000022/US-000022.md)**: Set timeout in VNCViewer control
 
 ### Demo
 Demo JavaFX application used to showcase the VNCViewerFX component and provide simple configuration UI.

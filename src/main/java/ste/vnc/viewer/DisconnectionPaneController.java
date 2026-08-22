@@ -23,6 +23,8 @@ import javafx.animation.KeyFrame;
 import javafx.animation.PauseTransition;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
+import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.fxml.FXML;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -57,12 +59,13 @@ public class DisconnectionPaneController {
     private static final long REFRESH_INTERVAL_NANOS = 100_000_000L; // 0.1 seconds
     private static final int CELL_SIZE = 4;
 
-    private static final int COUNTDOWN_SECONDS = 10;
     private static final Duration CONNECTING_FEEDBACK = Duration.millis(900);
 
+    private final ObjectProperty<Duration> reconnectTimeout =
+        new SimpleObjectProperty<>(this, "reconnectTimeout", Duration.seconds(10));
     private final Timeline countdownTimeline = new Timeline();
     private final PauseTransition retryFeedback = new PauseTransition(CONNECTING_FEEDBACK);
-    private int remainingSeconds = COUNTDOWN_SECONDS;
+    private int remainingSeconds = 10;
     private boolean retrying = false;
     private Runnable onRetry;
 
@@ -103,6 +106,21 @@ public class DisconnectionPaneController {
         this.onRetry = onRetry;
     }
 
+    public Duration getReconnectTimeout() {
+        return reconnectTimeout.get();
+    }
+
+    public void setReconnectTimeout(Duration value) {
+        if (value == null || value.toSeconds() <= 0) {
+            throw new IllegalArgumentException("reconnectTimeout must be > 0");
+        }
+        reconnectTimeout.set(value);
+    }
+
+    public ObjectProperty<Duration> reconnectTimeoutProperty() {
+        return reconnectTimeout;
+    }
+
     /**
      * Starts the scramble animation and the auto-retry countdown.
      */
@@ -134,7 +152,7 @@ public class DisconnectionPaneController {
         if (retrying) {
             return; // countdown resumes once the in-flight attempt's feedback finishes
         }
-        remainingSeconds = COUNTDOWN_SECONDS;
+        remainingSeconds = (int) reconnectTimeout.get().toSeconds();
         updateButtonText();
         countdownTimeline.stop();
         countdownTimeline.playFromStart();

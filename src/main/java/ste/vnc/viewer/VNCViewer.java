@@ -31,6 +31,7 @@ import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.control.ScrollPane;
+import javafx.util.Duration;
 
 /**
  * A JavaFX Canvas for displaying and interacting with a remote desktop via VNC.
@@ -67,6 +68,9 @@ public class VNCViewer extends ScrollPane {
 
     public final ObjectProperty<URI> uri =
         new SimpleObjectProperty<>(this, "connectionURI", URI.create("vnc://localhost:5900"));
+
+    public final ObjectProperty<Duration> reconnectTimeout =
+        new SimpleObjectProperty<>(this, "reconnectTimeout", Duration.seconds(10));
 
     protected final VNCViewerController controller;
 
@@ -124,6 +128,29 @@ public class VNCViewer extends ScrollPane {
 
     public String getUri() {
         return String.valueOf(uri.get());
+    }
+
+    public Duration getReconnectTimeout() {
+        return reconnectTimeout.get();
+    }
+
+    public void setReconnectTimeout(Duration value) {
+        if (value == null || value.toSeconds() <= 0) {
+            throw new IllegalArgumentException("reconnectTimeout must be > 0");
+        }
+        reconnectTimeout.set(value);
+    }
+
+    public Duration reconnectTimeout() {
+        return getReconnectTimeout();
+    }
+
+    public void reconnectTimeout(Duration value) {
+        setReconnectTimeout(value);
+    }
+
+    public ObjectProperty<Duration> reconnectTimeoutProperty() {
+        return reconnectTimeout;
     }
 
     public void remoteCursor(int width, int height, com.tigervnc.rfb.Point hotspot,
