@@ -27,7 +27,7 @@
                 HBox.hgrow="NEVER"/>
 
         <Label fx:id="titleLabel"
-               text="VNC Viewer Demo"
+               text=""
                HBox.hgrow="ALWAYS"
                styleClass="titlebar-title"/>
 

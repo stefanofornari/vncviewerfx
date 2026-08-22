@@ -129,6 +129,7 @@ public class CustomTitleBarController {
 
     @FXML
     void onTitleBarPressed(final MouseEvent event) {
+        System.out.println("onTitleBarPressed");
         // Only handle primary (left) mouse button clicks
         if ((event.getButton() != MouseButton.PRIMARY)) {
             return;
@@ -154,6 +155,7 @@ public class CustomTitleBarController {
 
     @FXML
     void onTitleBarDragged(final MouseEvent event) {
+        System.out.println("onTitleBarDragged");
         if ((event.getButton() != MouseButton.PRIMARY)) {
             return;
         }
@@ -206,11 +208,13 @@ public class CustomTitleBarController {
     public void setupResizeHandlers(
             Region resizeN, Region resizeS, Region resizeE, Region resizeW,
             Region resizeNE, Region resizeNW, Region resizeSE, Region resizeSW) {
+        System.out.println("setupResizeHandlers");
         final double[] dragStart = new double[2];
         final double[] stageStart = new double[4];
 
         Consumer<Region> setupResize = region -> {
             region.setOnMousePressed(e -> {
+                System.out.println("setOnMousePressed");
                 if (e.getButton() != MouseButton.PRIMARY) {
                     return;
                 }
@@ -224,6 +228,7 @@ public class CustomTitleBarController {
             });
 
             region.setOnMouseDragged(e -> {
+                System.out.println("setOnMouseDragged");
                 if (!e.isPrimaryButtonDown()) {
                     return;
                 }

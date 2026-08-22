@@ -1,65 +1,44 @@
 .root {
-    -phosphor:        rgba(255, 178, 0, 1.0);
-    -phosphor-muted:  rgba(138, 95, 0, 0.85);
-    -phosphor-subtle: rgba(138, 95, 0, 0.15);
 
-    /* Main brand accent color */
+    -fx-font-family: "JetBrains Mono", "Consolas", monospace;
+
+    -phosphor:        rgba(255, 178, 0, 1.0);
+    -phosphor-muted:  derived(-phosphor, +30%);
+    -phosphor-subtle: derived(-phosphor, +85%);
+
     -color-accent-emphasis: -phosphor;
     -color-accent-fg:       -phosphor;
     -color-accent-muted:    -phosphor-muted;
-    -color-accent-subtle:   -phosphor-subtle; /* Kept single definition */
+    -color-accent-subtle:   -phosphor-subtle;
 
-    /* Text selection color */
-    -color-cell-border-selected: -phosphor;
+    -color-bg-default: -phosphor-subtle;
 
-    /* Background colors */
-    -color-bg-default: rgba(243, 230, 200, 1.0);
-    -color-bg-subtle:  rgba(243, 230, 200, 0.85);
-    -color-bg-overlay: -phosphor-muted;
-    -color-bg-inset:   -phosphor;
-
-    /* Foreground/text colors — used throughout the titlebar and dialogs.
-       Dark warm brown rather than flat black, to sit comfortably on the
-       cream background and stay in the same amber/phosphor family. */
-    -color-fg-default: rgba(43, 29, 12, 1.0);
-    -color-fg-muted:   rgba(43, 29, 12, 0.62);
-
-    /* Interactive state colors */
-    -color-neutral-subtle: rgb(255, 0, 0);
-    -color-neutral-muted:  rgb(0, 255, 0);
-
-    /* Borders for popups and titlebars */
-    -color-border-default: -phosphor;
-    -color-border-muted:   -phosphor-muted;
-
-    /* Button hover styles */
-    -color-button-border-hover: -color-accent-muted;
-    -color-button-bg-hover:     -color-accent-emphasis;
-
-    /* --- MENU HOVER OVERRIDES --- */
-    /* 1. Standard JavaFX selection color (used by native MenuItems) */
-    -fx-selection-bar: -phosphor-subtle;
-    -fx-selection-bar-non-focused: -phosphor-subtle;
-
-    /* 2. Text color on hover (ensures readability) */
-    -fx-selection-bar-text: -color-fg-default;
-
-    /* 3. AtlantaFX-specific menu item hover variable */
-    -color-menu-item-bg-hover: -phosphor-subtle;
-    -color-menu-item-bg-focused: -phosphor-subtle;
+    -color-border-default: -color-accent-fg;
+    -color-menu-item-bg-hover: -color-accent-subtle;
+    -color-menu-item-bg-focused: -color-accent-subtle;
 }
 
-/* Fallback: Direct selector targeting top-level menu bar headers and dropdown items */
+/* TitleBar menu borders and separators */
+.context-menu,
+.context-menu .separator *.line {
+    -fx-border-color: -color-accent-emphasis;
+    -fx-background-color: -color-accent-muted;
+}
+
+.menu-item {
+    -fx-background-color: -color-accent-muted;
+}
+
 .menu-bar .menu:hover,
 .menu-bar .menu:showing,
 .menu-item:hover,
 .menu-item:focused {
-    -fx-background-color: -phosphor-subtle;
+    -fx-background-color: -color-accent-subtle;
 }
 
 .custom-titlebar {
-    -fx-background-color: -color-bg-default;
-    -fx-border-color: -color-border-muted;
+    -fx-background-color: -color-accent-muted;
+    -fx-border-color: -color-accent-fg;
     -fx-border-width: 0 0 1 0;
     -fx-padding: 4 8 4 8;
 }
@@ -81,7 +60,7 @@
 }
 
 .titlebar-button:hover {
-    -fx-background-color: -phosphor-subtle;
+    -fx-background-color: -color-accent-subtle;
 }
 
 .titlebar-title {
@@ -96,17 +75,17 @@
     -fx-background-color: -color-bg-default;
     -fx-padding: 24;
     -fx-spacing: 16;
-    -fx-border-color: -color-border-muted;
-    -fx-border-width: 1;
+    -fx-border-color: -color-accent-fg;
+    -fx-border-width: 2;
     -fx-background-radius: 8;
     -fx-border-radius: 8;
     -fx-effect: dropshadow(gaussian, rgba(43,29,12,0.35), 28, 0, 0, 10);
 }
 
 .about-icon-frame {
-    -fx-background-color: -phosphor-subtle;
+    -fx-background-color: color-accent-subtle;
     -fx-background-radius: 999;
-    -fx-border-color: -phosphor-muted;
+    -fx-border-color: -color-accent-fg;
     -fx-border-width: 1;
     -fx-border-radius: 999;
     -fx-padding: 10;
@@ -118,7 +97,7 @@
 }
 
 .about-separator .line {
-    -fx-border-color: -color-border-muted transparent transparent transparent;
+    -fx-border-color: -color-accent-fg transparent transparent transparent;
     -fx-border-width: 1 0 0 0;
     -fx-opacity: 0.6;
 }
@@ -151,8 +130,8 @@
 }
 
 .about-close-button {
-    -fx-background-color: -phosphor;
-    -fx-text-fill: -color-bg-default;
+    -fx-background-color: -color-accent-emphasis;
+    -fx-text-fill: -color-fg-default;
     -fx-font-weight: bold;
     -fx-padding: 6 16 6 16;
     -fx-min-width: 96px;
@@ -163,5 +142,6 @@
 }
 
 .about-close-button:hover {
-    -fx-background-color: -phosphor-muted;
+    -fx-background-color: -color-bg-default;
+    -fx-border-color: -color-accent-emphasis;
 }

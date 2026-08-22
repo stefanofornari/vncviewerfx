@@ -1,0 +1,51 @@
+/**
+ * This CSS makes use of the following stylesheet variables that must be defined
+ * before the styles here a reprocessed.
+ * -fx-font-family
+ *  -color-accent-emphasis
+ *  -color-accent-fg
+ *  -color-accent-muted
+ *  -color-accent-subtle
+ */
+.disconnection-pane {
+    -panel:        rgba(0, 0, 0, 0.90);
+    -panel-edge:   -color-accent-muted;
+    -text:         -color-accent-subtle;
+}
+
+.disconnection-pane .double-bordered-label-inner {
+    -fx-background-color: -color-accent-emphasis, -panel-edge, -panel;
+    -fx-background-insets: 0, 2, 3;
+    -fx-padding: 31 29 27 29;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.6), 40, 0, 0, 16);
+    -fx-opacity: 0.8;
+}
+
+.disconnection-pane .message {
+    -fx-text-fill: -text;
+    -fx-font-size: 14px;
+    -fx-text-alignment: center;
+}
+
+.disconnection-pane .retry-btn {
+    -fx-background-color: transparent;
+    -fx-background-radius: 0;
+    -fx-border-color: -color-border-default;
+    -fx-border-width: 1;
+    -fx-text-fill: -color-accent-emphasis;
+    -fx-padding: 11 22 11 22;
+    -fx-font-size: 12.5px;
+    -fx-cursor: hand;
+}
+
+.disconnection-pane .retry-btn:hover,
+.disconnection-pane .retry-btn:focused {
+    -fx-background-color: -color-border-default;
+    -fx-border-color: -color-border-default;
+    -fx-text-fill: -panel;
+}
+
+.disconnection-pane .retry-btn:disabled {
+    -fx-opacity: 0.55;
+    -fx-cursor: default;
+}

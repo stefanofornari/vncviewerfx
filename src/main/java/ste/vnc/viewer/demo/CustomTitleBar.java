@@ -48,11 +48,11 @@ public class CustomTitleBar extends HBox {
     }
 
     public void setTitle(final String title) {
-        this.title.set(title);
+        this.controller.title(title);
     }
 
     public String getTitle() {
-        return this.title.get();
+        return this.controller.title();
     }
 
     public void onFullscreen(final Runnable handler) {

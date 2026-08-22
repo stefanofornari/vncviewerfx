@@ -7,10 +7,9 @@
 <?import javafx.scene.layout.VBox?>
 
 <fx:root xmlns:fx="http://javafx.com"
-         type="javafx.scene.layout.StackPane"
-         fx:id="rootPane"
-         stylesheets="@DisconnectionPane.css"
-         fx:controller="ste.vnc.viewer.DisconnectionPaneController">
+          type="javafx.scene.layout.StackPane"
+          fx:id="rootPane"
+          fx:controller="ste.vnc.viewer.DisconnectionPaneController">
 
     <Canvas fx:id="scrambleCanvas"/>
 

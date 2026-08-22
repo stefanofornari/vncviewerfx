@@ -47,8 +47,8 @@ class CustomTitleBarSpec extends ApplicationTest {
     }
 
     @Test
-    void titlebar_title_has_default_value() {
-        then(titleBar.title.get()).isEqualTo("VNC Viewer Demo");
+    void titlebar_title_has_default_value_to_empty() {
+        then(titleBar.title.get()).isEmpty();
     }
 
     @Test

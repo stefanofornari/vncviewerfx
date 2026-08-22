@@ -103,48 +103,16 @@ public class EventBridge {
    * Converts JavaFX KeyCode to VNC keysym
    */
   public int keyCodeToKeysym(javafx.scene.input.KeyCode keyCode) {
-    // Map JavaFX KeyCode to X11 keysyms
+    // Map JavaFX KeyCode to X11 keysyms.
+    //
+    // Printable characters (letters A-Z, digits 0-9, punctuation, etc.) are
+    // intentionally NOT mapped here. KeyboardInputListener.onKeyPressed() falls
+    // back to KeyEvent.getText(), which JavaFX resolves with full modifier and
+    // keyboard-layout awareness (e.g. Shift+1 → "!" → keysym 0x21). Mapping
+    // them explicitly here would always return the unshifted keysym (e.g. XK_1
+    // for Shift+1), causing TigerVNC's "temp-shift" fixup to silently undo the
+    // Shift modifier and type the wrong character.
     switch (keyCode) {
-      // Printable keys (letters)
-      case A: return 'a';
-      case B: return 'b';
-      case C: return 'c';
-      case D: return 'd';
-      case E: return 'e';
-      case F: return 'f';
-      case G: return 'g';
-      case H: return 'h';
-      case I: return 'i';
-      case J: return 'j';
-      case K: return 'k';
-      case L: return 'l';
-      case M: return 'm';
-      case N: return 'n';
-      case O: return 'o';
-      case P: return 'p';
-      case Q: return 'q';
-      case R: return 'r';
-      case S: return 's';
-      case T: return 't';
-      case U: return 'u';
-      case V: return 'v';
-      case W: return 'w';
-      case X: return 'x';
-      case Y: return 'y';
-      case Z: return 'z';
-
-      // Printable keys (digits)
-      case DIGIT0: return '0';
-      case DIGIT1: return '1';
-      case DIGIT2: return '2';
-      case DIGIT3: return '3';
-      case DIGIT4: return '4';
-      case DIGIT5: return '5';
-      case DIGIT6: return '6';
-      case DIGIT7: return '7';
-      case DIGIT8: return '8';
-      case DIGIT9: return '9';
-
       case SPACE: return 0x20;
       case BACK_SPACE: return 0xFF08;
       case TAB: return 0xFF09;
