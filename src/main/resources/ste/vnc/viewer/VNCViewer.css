@@ -8,13 +8,13 @@
  *  -color-accent-subtle
  */
 .disconnection-pane {
-    -panel:        rgba(0, 0, 0, 0.90);
-    -panel-edge:   -color-accent-muted;
-    -text:         -color-accent-subtle;
+    -panel:        rgba(0, 0, 0, 0.85);
+    -panel-edge:   -color-accent-fg;
+    -text:         -color-accent-fg;
 }
 
 .disconnection-pane .double-bordered-label-inner {
-    -fx-background-color: -color-accent-emphasis, -panel-edge, -panel;
+    -fx-background-color: -color-accent-fg, -panel-edge, -panel;
     -fx-background-insets: 0, 2, 3;
     -fx-padding: 31 29 27 29;
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.6), 40, 0, 0, 16);
@@ -40,7 +40,7 @@
 
 .disconnection-pane .retry-btn:hover,
 .disconnection-pane .retry-btn:focused {
-    -fx-background-color: -color-border-default;
+    -fx-background-color: -color-bg-default;
     -fx-border-color: -color-border-default;
     -fx-text-fill: -panel;
 }

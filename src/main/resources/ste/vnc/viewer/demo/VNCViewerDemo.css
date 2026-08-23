@@ -2,16 +2,12 @@
 
     -fx-font-family: "JetBrains Mono", "Consolas", monospace;
 
-    -phosphor:        rgba(255, 178, 0, 1.0);
-    -phosphor-muted:  derived(-phosphor, +30%);
-    -phosphor-subtle: derived(-phosphor, +85%);
+    -color-accent-emphasis: #e0dacc;
+    -color-accent-fg:       #bda083;
+    -color-accent-muted:    #f3efe7;
+    -color-accent-subtle:   #f9f6f1;
 
-    -color-accent-emphasis: -phosphor;
-    -color-accent-fg:       -phosphor;
-    -color-accent-muted:    -phosphor-muted;
-    -color-accent-subtle:   -phosphor-subtle;
-
-    -color-bg-default: -phosphor-subtle;
+    -color-bg-default: #f9f6f1;
 
     -color-border-default: -color-accent-fg;
     -color-menu-item-bg-hover: -color-accent-subtle;
@@ -21,12 +17,13 @@
 /* TitleBar menu borders and separators */
 .context-menu,
 .context-menu .separator *.line {
-    -fx-border-color: -color-accent-emphasis;
+    -fx-border-color: -color-accent-fg;
     -fx-background-color: -color-accent-muted;
 }
 
 .menu-item {
     -fx-background-color: -color-accent-muted;
+
 }
 
 .menu-bar .menu:hover,
@@ -36,10 +33,10 @@
     -fx-background-color: -color-accent-subtle;
 }
 
-.custom-titlebar {
+.titlebar {
     -fx-background-color: -color-accent-muted;
     -fx-border-color: -color-accent-fg;
-    -fx-border-width: 0 0 1 0;
+    -fx-border-width: 0 0 0 0;
     -fx-padding: 4 8 4 8;
 }
 
@@ -60,11 +57,10 @@
 }
 
 .titlebar-button:hover {
-    -fx-background-color: -color-accent-subtle;
+    -fx-background-color: -color-accent-emphasis;
 }
 
 .titlebar-title {
-    -fx-text-fill: -color-fg-default;
     -fx-font-size: 13px;
     -fx-font-weight: bold;
     -fx-padding: 0 0 0 8;

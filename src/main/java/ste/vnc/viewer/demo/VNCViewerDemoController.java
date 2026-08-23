@@ -121,7 +121,6 @@ public class VNCViewerDemoController {
 
         javafx.stage.Stage dialogStage = new javafx.stage.Stage();
         dialogStage.initOwner(stage());
-        // Use TRANSPARENT style instead of UNDECORATED
         dialogStage.initStyle(javafx.stage.StageStyle.TRANSPARENT);
         dialogStage.setScene(dialogScene);
         dialogStage.show();
