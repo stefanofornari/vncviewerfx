@@ -33,6 +33,7 @@ Demo JavaFX application used to showcase the VNCViewerFX component and provide s
 - **[US-000014](demo/US-000014/US-000014.md)**: Handle User Input in Demo
 - **[US-000015](demo/US-000015/US-000015.md)**: Display Connection Status
 - **[US-000016](demo/US-000016/US-000016.md)**: Demonstrate Cut & Paste Between Text Field and Canvas
+- **[US-000023](demo/US-000023/US-000023.md)**: About Dialog
 
 ## Scope Reference
 - [Scope Overview](../scope.md)
