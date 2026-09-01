@@ -55,6 +55,8 @@ public class VNCViewerDemoController {
     public void initialize() {
         log.finest(() -> "initializing the controller");
 
+        // TODO: move the below to the WebChat component initialization
+
         // Enable viewer parameters so Configuration.setParam() can see them
         Configuration.enableViewerParams();
 
@@ -63,6 +65,8 @@ public class VNCViewerDemoController {
         Security.enabledSecTypes.clear();
         Security.EnableSecType(Security.secTypeNone);
 
+        // ----
+        
         Platform.runLater(() -> {
             titleBar.onFullscreen(this::onToggleFullScreen);
             titleBar.onAbout(this::onAbout);

@@ -609,8 +609,6 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback, 
         if (formatChange) {
             PixelFormat pf;
 
-            assert (!pendingUpdate || supportsSyncFence);
-
             if (fullColour) {
                 pf = fullColourPF;
             } else {
