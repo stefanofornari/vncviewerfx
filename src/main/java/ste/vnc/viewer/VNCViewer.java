@@ -74,7 +74,6 @@ public class VNCViewer extends ScrollPane {
 
     protected final VNCViewerController controller;
 
-    // TODO remove: private final AtomicBoolean redrawPending = new AtomicBoolean();
     private ConnectionMode connectionMode = ConnectionMode.MANUAL;
 
     public VNCViewer() {

@@ -100,18 +100,27 @@ public class EventBridge {
   }
 
   /**
-   * Converts JavaFX KeyCode to VNC keysym
+   * Converts JavaFX KeyCode to VNC keysym.
+   *
+   * <p>Non-printable keys (arrows, function keys, modifiers, etc.) use a
+   * hardcoded X11 keysym table. Printable characters (A-Z, 0-9) are mapped
+   * to their unshifted X11 keysyms here so that key combinations involving
+   * modifiers (e.g. Ctrl+V) work correctly. In the VNC RFB protocol the
+   * modifier state is transmitted via separate modifier key down/up events;
+   * the keysym carried by the key event should be the unshifted keysym
+   * (e.g. XK_a = 0x61). The remote X server then applies the active
+   * modifier state to derive the final character.
+   *
+   * <p>We intentionally do NOT rely on {@code KeyEvent.getText()} for
+   * printable keys because JavaFX returns an empty string for
+   * {@code KEY_PRESSED} events when a modifier such as Ctrl is held,
+   * which would silently drop key-combination events. The
+   * {@code KeyEvent.getText()} fallback in
+   * {@link KeyboardInputListener} is retained only as a safety net for
+   * keys not explicitly mapped here.
    */
   public int keyCodeToKeysym(javafx.scene.input.KeyCode keyCode) {
     // Map JavaFX KeyCode to X11 keysyms.
-    //
-    // Printable characters (letters A-Z, digits 0-9, punctuation, etc.) are
-    // intentionally NOT mapped here. KeyboardInputListener.onKeyPressed() falls
-    // back to KeyEvent.getText(), which JavaFX resolves with full modifier and
-    // keyboard-layout awareness (e.g. Shift+1 → "!" → keysym 0x21). Mapping
-    // them explicitly here would always return the unshifted keysym (e.g. XK_1
-    // for Shift+1), causing TigerVNC's "temp-shift" fixup to silently undo the
-    // Shift modifier and type the wrong character.
     switch (keyCode) {
       case SPACE: return 0x20;
       case BACK_SPACE: return 0xFF08;
@@ -150,6 +159,45 @@ public class EventBridge {
 //      case SUPER_L: return 0xFFEB;
 //      case SUPER_R: return 0xFFEC;
       case CONTEXT_MENU: return 0xFF67;
+      // Printable characters: unshifted X11 keysyms.
+      // The VNC protocol communicates modifier state via separate modifier
+      // key events, so the keysym here is always the unshifted form.
+      case A: return 0x61;
+      case B: return 0x62;
+      case C: return 0x63;
+      case D: return 0x64;
+      case E: return 0x65;
+      case F: return 0x66;
+      case G: return 0x67;
+      case H: return 0x68;
+      case I: return 0x69;
+      case J: return 0x6A;
+      case K: return 0x6B;
+      case L: return 0x6C;
+      case M: return 0x6D;
+      case N: return 0x6E;
+      case O: return 0x6F;
+      case P: return 0x70;
+      case Q: return 0x71;
+      case R: return 0x72;
+      case S: return 0x73;
+      case T: return 0x74;
+      case U: return 0x75;
+      case V: return 0x76;
+      case W: return 0x77;
+      case X: return 0x78;
+      case Y: return 0x79;
+      case Z: return 0x7A;
+      case DIGIT0: return 0x30;
+      case DIGIT1: return 0x31;
+      case DIGIT2: return 0x32;
+      case DIGIT3: return 0x33;
+      case DIGIT4: return 0x34;
+      case DIGIT5: return 0x35;
+      case DIGIT6: return 0x36;
+      case DIGIT7: return 0x37;
+      case DIGIT8: return 0x38;
+      case DIGIT9: return 0x39;
       default: return 0;
     }
   }
