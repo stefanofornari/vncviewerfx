@@ -17,8 +17,8 @@
  */
 package ste.vnc.viewer;
 
+import javafx.geometry.Point2D;
 import javafx.scene.input.MouseEvent;
-import com.tigervnc.rfb.Point;
 import javafx.scene.input.ScrollEvent;
 
 /**
@@ -38,11 +38,11 @@ public class MouseInputListener {
     }
 
     public void onMousePressed(MouseEvent e) {
-        Point pos = eventBridge.mouseEventToVnc(e);
+        Point2D pos = eventBridge.mouseEventToVnc(e);
         int buttons = eventBridge.mouseButtonsFromEvent(e);
         lastButtonState = buttons;
-        lastX = pos.x;
-        lastY = pos.y;
+        lastX = (int)pos.getX();
+        lastY = (int)pos.getY();
 
         if (connection != null) {
             try {
@@ -54,11 +54,11 @@ public class MouseInputListener {
     }
 
     public void onMouseReleased(MouseEvent e) {
-        Point pos = eventBridge.mouseEventToVnc(e);
+        Point2D pos = eventBridge.mouseEventToVnc(e);
         int buttons = eventBridge.mouseButtonsFromEvent(e);
         lastButtonState = buttons;
-        lastX = pos.x;
-        lastY = pos.y;
+        lastX = (int)pos.getX();
+        lastY = (int)pos.getY();
 
         if (connection != null) {
             try {
@@ -70,17 +70,17 @@ public class MouseInputListener {
     }
 
     public void onMouseMoved(MouseEvent e) {
-        Point pos = eventBridge.mouseEventToVnc(e);
+        Point2D pos = eventBridge.mouseEventToVnc(e);
         int buttons = eventBridge.mouseButtonsFromEvent(e);
 
         int prevX = lastX;
         int prevY = lastY;
         int prevButtons = lastButtonState;
 
-        lastX = pos.x;
-        lastY = pos.y;
+        lastX = (int)pos.getX();
+        lastY = (int)pos.getY();
 
-        if (connection != null && (pos.x != prevX || pos.y != prevY || buttons != prevButtons)) {
+        if (connection != null && (lastX != prevX || lastY != prevY || buttons != prevButtons)) {
             lastButtonState = buttons;
             try {
                 connection.pointerEvent(pos, buttons);

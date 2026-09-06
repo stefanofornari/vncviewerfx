@@ -17,59 +17,49 @@
  */
 package ste.vnc.viewer;
 
-import com.tigervnc.network.Socket;
-import com.tigervnc.rfb.CMsgWriterV3;
-import java.util.concurrent.atomic.AtomicBoolean;
-
-import static com.tigervnc.rfb.CConnection.RFBSTATE_NORMAL;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.Socket;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class VNCServiceStub extends VNCService {
 
-    protected CMsgWriterV3 customWriter;
-    protected int forcedState = RFBSTATE_NORMAL;
-    protected Socket socketToReturn;
+    protected ste.vnc.rfb.ServerInit customServerInit;
     protected boolean failSocketCreation = false;
     protected final AtomicBoolean protocolInitialized = new AtomicBoolean(false);
     protected boolean closed = false;
+    protected Socket socketToReturn;
+    protected ste.vnc.rfb.VNCClient mockClient;
+    protected transient CountDownLatch readLatch;
 
     public VNCServiceStub() {
         this(Optional.empty());
     }
-    
+
     public VNCServiceStub(final Optional<ExecutorService> executor) {
         executor.ifPresent(e -> this.executor = e);
     }
 
-    public void customWriter(CMsgWriterV3 writer) {
-        this.customWriter = writer;
+    public void customServerInit(ste.vnc.rfb.ServerInit serverInit) {
+        this.customServerInit = serverInit;
     }
 
-    public void forcedState(int state) {
-        this.forcedState = state;
-    }
-
-    @Override
-    public CMsgWriterV3 writer() {
-        if (customWriter != null) {
-            return customWriter;
-        }
-        return mock(CMsgWriterV3.class);
-    }
-
-    @Override
-    public int state() {
-        return forcedState;
+    public void failSocketCreation(boolean fail) {
+        this.failSocketCreation = fail;
     }
 
     public void socketToReturn(Socket socket) {
         this.socketToReturn = socket;
     }
 
-    public void failSocketCreation(boolean fail) {
-        this.failSocketCreation = fail;
+    public void mockClient(ste.vnc.rfb.VNCClient client) {
+        this.mockClient = client;
     }
 
     @Override
@@ -77,15 +67,44 @@ public class VNCServiceStub extends VNCService {
         if (failSocketCreation) {
             throw new java.io.IOException("Simulated connection failure");
         }
-        return socketToReturn;
+        if (socketToReturn != null) {
+            return socketToReturn;
+        }
+        return null;
     }
 
     @Override
-    protected void doInitialiseProtocol() {
+    protected ste.vnc.rfb.VNCClient createVNCClient(Socket sock, boolean shared) throws IOException {
+        if (mockClient != null) {
+            final InputStream mockIn = mock(InputStream.class);
+            final OutputStream mockOut = mock(OutputStream.class);
+            when(mockClient.getInputStream()).thenReturn(mockIn);
+            when(mockClient.getOutputStream()).thenReturn(mockOut);
+            return mockClient;
+        }
+        return null;
+    }
+
+    @Override
+    public void disconnect() {
+        if (vncProcessing != null) {
+            vncProcessing.cancel(true);
+        }
+        if (readLatch != null) {
+            readLatch.countDown();
+        }
+        super.disconnect();
+    }
+
+    public void serverInit(ste.vnc.rfb.ServerInit serverInit) {
         protocolInitialized.set(true);
+        if (customServerInit != null) {
+            super.serverInit(customServerInit);
+        } else {
+            super.serverInit(serverInit);
+        }
     }
 
-    @Override
     public void processMsg() {
         try {
             Thread.sleep(100);

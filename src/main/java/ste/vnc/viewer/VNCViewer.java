@@ -22,6 +22,7 @@ import javafx.scene.ImageCursor;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 
+import java.awt.Point;
 import java.io.IOException;
 import java.net.URI;
 import java.util.logging.Logger;
@@ -152,7 +153,7 @@ public class VNCViewer extends ScrollPane {
         return reconnectTimeout;
     }
 
-    public void remoteCursor(int width, int height, com.tigervnc.rfb.Point hotspot,
+    public void remoteCursor(int width, int height, java.awt.Point hotspot,
         int[] data, byte[] mask) {
         if (width <= 0 || height <= 0 || data == null || mask == null) {
             return;

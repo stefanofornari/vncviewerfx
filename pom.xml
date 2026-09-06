@@ -9,10 +9,10 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <maven.compiler.release>21</maven.compiler.release>
         <javafx.version>21.0.2</javafx.version>
         <exec.mainClass>ste.vnc.viewer.demo.VNCViewerDemo</exec.mainClass>
         <junit.jupiter.version>5.10.3</junit.jupiter.version>
+        <maven.compiler.release>21</maven.compiler.release>
     </properties>
 
 
@@ -38,14 +38,19 @@
             <version>${javafx.version}</version>
         </dependency>
         <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-web</artifactId>
+            <version>${javafx.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
             <version>3.12.0</version>
         </dependency>
         <dependency>
-            <groupId>io.github.oculix-org</groupId>
-            <artifactId>tigervnc-java-oculix</artifactId>
-            <version>2.0.3-SNAPSHOT</version>
+            <groupId>ste.vnc</groupId>
+            <artifactId>mini-rfb</artifactId>
+            <version>0.0.1</version>
         </dependency>
         <dependency>
             <groupId>dev.dirs</groupId>
@@ -103,7 +108,7 @@
         <dependency>
             <groupId>com.github.stefanofornari</groupId>
             <artifactId>xtest</artifactId>
-            <version>3.12.1-SNAPSHOT</version>
+            <version>3.13.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>

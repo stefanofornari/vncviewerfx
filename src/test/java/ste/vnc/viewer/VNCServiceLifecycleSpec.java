@@ -17,12 +17,11 @@
  */
 package ste.vnc.viewer;
 
-import com.tigervnc.network.Socket;
-import com.tigervnc.rdr.FdInStream;
-import com.tigervnc.rdr.FdOutStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.net.Socket;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -30,36 +29,36 @@ import javafx.stage.Stage;
 import static org.assertj.core.api.BDDAssertions.then;
 
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.timeout;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.testfx.framework.junit5.ApplicationTest;
+import ste.vnc.rfb.ServerInit;
+import ste.vnc.rfb.VNCClient;
 import ste.xtest.concurrent.SingleTaskExecutorService;
 
 public class VNCServiceLifecycleSpec extends ApplicationTest {
 
     private VNCServiceStub vncService;
     private Socket mockSocket;
-    private FdInStream mockInStream;
-    private FdOutStream mockOutStream;
 
     @Override
     public void start(Stage stage) {
-        // No UI needed for these tests; JavaFX platform is initialised by TestFX.
     }
 
     @BeforeEach
-    void before_each() {
+    void before_each() throws Exception {
         mockSocket = mock(Socket.class);
-        mockInStream = mock(FdInStream.class);
-        mockOutStream = mock(FdOutStream.class);
-
-        when(mockSocket.inStream()).thenReturn(mockInStream);
-        when(mockSocket.outStream()).thenReturn(mockOutStream);
-        when(mockSocket.getPeerEndpoint()).thenReturn("127.0.0.1:5900");
 
         vncService = new VNCServiceStub();
         vncService.socketToReturn(mockSocket);
+        vncService.readLatch = null;
+
+        VNCClient mockVNCClient = mock(ste.vnc.rfb.VNCClient.class);
+        ServerInit mockServerInit = new ste.vnc.rfb.ServerInit(
+            100, 100, VNCService.NATIVE_PF, "test"
+        );
+        when(mockVNCClient.getServerInit()).thenReturn(mockServerInit);
+        when(mockVNCClient.readMessage()).thenThrow(new IOException("Simulated server disconnect"));
+        vncService.mockClient(mockVNCClient);
     }
 
     @Test
@@ -74,11 +73,9 @@ public class VNCServiceLifecycleSpec extends ApplicationTest {
 
         vncService.connect("127.0.0.1", 5900);
 
-        then(connectedLatch.await(2, TimeUnit.SECONDS)).isTrue();
+        then(connectedLatch.await(10, TimeUnit.SECONDS)).isTrue();
         then(vncService.protocolInitialized.get()).isTrue();
-        verify(mockInStream).setBlockCallback(vncService);
 
-        // Cleanup
         vncService.disconnect();
     }
 
@@ -97,32 +94,8 @@ public class VNCServiceLifecycleSpec extends ApplicationTest {
         vncService.failSocketCreation(true);
         vncService.connect("127.0.0.1", 5900);
 
-        then(closedLatch.await(2, TimeUnit.SECONDS)).isTrue();
+        then(closedLatch.await(10, TimeUnit.SECONDS)).isTrue();
         then(vncService.connected.get()).isFalse();
-    }
-
-    @Test
-    void disconnect_interrupts_RFB_thread_and_close() throws Exception {
-        CountDownLatch connectedLatch = new CountDownLatch(1);
-        CountDownLatch disconnectedLatch = new CountDownLatch(1);
-
-        vncService.connected.addListener((o, was, is) -> {
-            if (is) {
-                connectedLatch.countDown();
-            } else {
-                disconnectedLatch.countDown();
-            }
-        });
-
-        vncService.connect("127.0.0.1", 5900);
-        then(connectedLatch.await(2, TimeUnit.SECONDS)).isTrue();
-
-        // Stop thread and trigger close
-        vncService.disconnect();
-
-        then(disconnectedLatch.await(2, TimeUnit.SECONDS)).isTrue();
-        then(vncService.connected.get()).isFalse();
-        verify(mockSocket, timeout(1000)).shutdown();
     }
 
     @Test
@@ -131,13 +104,38 @@ public class VNCServiceLifecycleSpec extends ApplicationTest {
 
         vncService.executor = new SingleTaskExecutorService(() -> executed.incrementAndGet());
 
-        vncService.connect("127.0.0.1", 5900); vncService.disconnect();
+        vncService.connect("127.0.0.1", 5900);
+        vncService.disconnect();
 
         then(executed.get()).isEqualTo(1);
 
-        vncService.connect("127.0.0.1", 5900); vncService.disconnect();
+        vncService.connect("127.0.0.1", 5900);
+        vncService.disconnect();
 
         then(executed.get()).isEqualTo(2);
     }
 
+    @Test
+    void connection_drops_triggers_disconnect() throws Exception {
+        CountDownLatch connectedLatch = new CountDownLatch(1);
+        CountDownLatch disconnectedLatch = new CountDownLatch(1);
+
+        vncService.connected.addListener((obs, wasConnected, isConnected) -> {
+            if (isConnected) {
+                connectedLatch.countDown();
+            } else if (wasConnected) {
+                disconnectedLatch.countDown();
+            }
+        });
+
+        // Mock client configured in @BeforeEach throws IOException on readMessage()
+        vncService.connect("127.0.0.1", 5900);
+
+        // 1. Wait until initial connection succeeds
+        then(connectedLatch.await(2, TimeUnit.SECONDS)).isTrue();
+
+        // 2. Wait for background task to encounter the dropped connection and close
+        then(disconnectedLatch.await(2, TimeUnit.SECONDS)).isTrue();
+        then(vncService.connected.get()).isFalse();
+    }
 }

@@ -18,9 +18,9 @@
 
 package ste.vnc.viewer;
 
+import javafx.geometry.Point2D;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.KeyEvent;
-import com.tigervnc.rfb.Point;
 
 /**
  * Bridges JavaFX input events to VNC server coordinates.
@@ -46,16 +46,16 @@ public class EventBridge {
   /**
    * Converts JavaFX screen coordinates to VNC server coordinates
    */
-  public Point screenToVnc(double screenX, double screenY) {
+  public Point2D screenToVnc(double screenX, double screenY) {
     double vncX = (screenX - offsetX) / scaleX;
     double vncY = (screenY - offsetY) / scaleY;
-    return new Point((int)vncX, (int)vncY);
+    return new Point2D(vncX, vncY);
   }
 
   /**
    * Converts JavaFX screen coordinates to VNC for mouse event
    */
-  public Point mouseEventToVnc(MouseEvent e) {
+  public Point2D mouseEventToVnc(MouseEvent e) {
     return screenToVnc(e.getX(), e.getY());
   }
 

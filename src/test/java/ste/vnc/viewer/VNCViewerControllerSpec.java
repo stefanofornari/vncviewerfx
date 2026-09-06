@@ -17,9 +17,9 @@
  */
 package ste.vnc.viewer;
 
-import com.tigervnc.network.Socket;
-import com.tigervnc.rdr.FdInStream;
-import com.tigervnc.rdr.FdOutStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.Socket;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javafx.event.EventHandler;
 import javafx.scene.Scene;
@@ -31,7 +31,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.testfx.framework.junit5.ApplicationTest;
-
 
 import static org.assertj.core.api.BDDAssertions.then;
 import static org.mockito.Mockito.mock;
@@ -46,12 +45,6 @@ public class VNCViewerControllerSpec extends ApplicationTest {
     public void start(Stage stage) {
         VNCViewer viewer = new VNCViewer();
         controller = (DummyVNCViewerController) viewer.controller;
-
-        // Mock socket to prevent NPE inside background thread during connect()
-        Socket mockSocket = mock(Socket.class);
-        when(mockSocket.inStream()).thenReturn(mock(FdInStream.class));
-        when(mockSocket.outStream()).thenReturn(mock(FdOutStream.class));
-        ((VNCServiceStub)controller.vnc).socketToReturn(mockSocket);
 
         root = new StackPane(controller.viewer);
         Scene scene = new Scene(root, 800, 600);

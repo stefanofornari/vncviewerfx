@@ -18,7 +18,8 @@
 package ste.vnc.viewer.demo;
 
 import atlantafx.base.theme.PrimerLight;
-import com.tigervnc.rfb.LogWriter;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
@@ -39,7 +40,7 @@ import ste.vnc.viewer.VNCViewer;
  */
 public class VNCViewerDemo extends Application {
 
-    private static final LogWriter vlog = new LogWriter(VNCViewerDemo.class.getName());
+    private static final Logger vlog = Logger.getLogger(VNCViewerDemo.class.getName());
 
 
     @Override
@@ -65,9 +66,9 @@ public class VNCViewerDemo extends Application {
             primaryStage.show();
 
         } catch (Exception e) {
-            vlog.error("Failed to start FX viewer: " + e.getMessage());
+            vlog.log(Level.SEVERE, "Failed to start FX viewer: " + e.getMessage());
             if (e.getCause() != null) {
-                vlog.error("Caused by: " + e.getCause().getMessage());
+                vlog.log(Level.SEVERE, "Caused by: " + e.getCause().getMessage());
             }
             e.printStackTrace();
             primaryStage.close();

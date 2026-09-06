@@ -17,29 +17,17 @@
  */
 package ste.vnc.viewer;
 
-import java.awt.Toolkit;
-
-import com.tigervnc.network.Socket;
-import com.tigervnc.network.TcpSocket;
-import com.tigervnc.rdr.FdInStreamBlockCallback;
-import com.tigervnc.rdr.MemInStream;
-import com.tigervnc.rdr.MemOutStream;
-import com.tigervnc.rfb.CConnection;
-import com.tigervnc.rfb.Encodings;
-import com.tigervnc.rfb.PixelFormat;
-import com.tigervnc.rfb.Point;
-import com.tigervnc.rfb.Rect;
-import com.tigervnc.rfb.Screen;
-import com.tigervnc.rfb.ScreenSet;
-import com.tigervnc.rfb.fenceTypes;
 import java.awt.Dimension;
+import java.awt.Toolkit;
+import java.io.IOException;
+import java.net.Socket;
 import java.nio.ByteOrder;
 import java.nio.IntBuffer;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
@@ -48,18 +36,29 @@ import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
+import javafx.geometry.Point2D;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.image.PixelBuffer;
 import javafx.scene.image.WritableImage;
 import javafx.scene.input.ScrollEvent;
+import ste.vnc.rfb.Encodings;
+import ste.vnc.rfb.EncodingType;
+import ste.vnc.rfb.FramebufferUpdateMessage;
+import ste.vnc.rfb.FramebufferUpdateRectangle;
+import ste.vnc.rfb.PixelFormat;
+import ste.vnc.rfb.RFBStream;
+import ste.vnc.rfb.Rectangle;
+import ste.vnc.rfb.Screen;
+import ste.vnc.rfb.ScreenSet;
+import ste.vnc.rfb.ServerCutTextMessage;
+import ste.vnc.rfb.ServerInit;
+import ste.vnc.rfb.VNCClient;
+import ste.vnc.rfb.FenceType;
 import static ste.lloop.Loop.on;
+import ste.vnc.rfb.ServerMessage;
 
 
-public class VNCService extends CConnection implements FdInStreamBlockCallback, AutoCloseable {
-    // Use the same native pixel format as the Swing viewer so the server
-    // treats us the same way. ImageRender will convert from that format to
-    // JavaFX INT_ARGB. The native format is computed from the AWT toolkit's
-    // ColorModel, matching PlatformPixelBuffer.getNativePF().
+public class VNCService implements AutoCloseable {
     static final PixelFormat NATIVE_PF = computeNativePF();
     static final PixelFormat verylowColourPF = new PixelFormat(8, 3, false, true, 1, 1, 1, 2, 1, 0);
     static final PixelFormat lowColourPF = new PixelFormat(8, 6, false, true, 3, 3, 3, 4, 2, 0);
@@ -73,25 +72,22 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback, 
     protected ExecutorService executor = Executors.newThreadPerTaskExecutor(
         Thread.ofVirtual().name("VNC RFB processing").factory()
     );
-    protected Future vncProcessing = null;
+    protected Future<?> vncProcessing = null;
 
     private final EventBridge eventBridge = new EventBridge();
     private final Dimension desktopSize = new Dimension();
 
-    private Socket sock;
+    private Socket socket;
+    private VNCClient client;
+    private RFBStream rfb;
     private boolean pendingPFChange;
     private PixelFormat pendingPF;
-    private PixelFormat fullColourPF = new PixelFormat();
+    private PixelFormat fullColourPF = new PixelFormat(32, 24, false, true, 255, 255, 255, 16, 8, 0);
     private PixelFormat serverPF;
     private long lastDesktopSizeHash = 0;
 
-    /*
-     * Rectangle of dirty content within a buffer update
-     */
-    private Rect dirtyRect = null;
-
+    private Rectangle dirtyRect = null;
     private final boolean fullColour = true;
-
     private int lowColourLevel;
     private boolean formatChange;
     private boolean encodingChange;
@@ -102,60 +98,28 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback, 
     private int lastRequestedDesktopWidth = -1;
     private int lastRequestedDesktopHeight = -1;
     private int updateCount = 0;
-    private int currentEncoding = Encodings.encodingRaw;
+    private int currentEncoding = Encodings.encodingHextile;
 
     private int[] imageBuffer;
     private PixelBuffer pixelBuffer;
+    private int imageWidth;
+    private int imageHeight;
 
-    public final ObjectProperty<WritableImage> image = new SimpleObjectProperty();
+    public final ObjectProperty<WritableImage> image = new SimpleObjectProperty<>();
 
     public VNCService() {
-        //
-        // Hard-wire protocol options that we comfortable they work
-        // - Server-rendered cursor in the framebuffer
-        // - ZRLE encoding with lossless (no-JPEG) compression
-        // - Compression level 0
-        //
-        setShared(true);
-        cp.supportsLocalCursor = false;
-        cp.supportsDesktopResize = true;
-        cp.supportsExtendedDesktopSize = true;
-        cp.supportsClientRedirect = true;
-        cp.supportsDesktopRename = true;
-        cp.customCompressLevel = true;
-        cp.compressLevel = 0;
-        cp.noJpeg = true;
-
-        //
-        // Prefer ZRLE and advertise all supported fallbacks (Tight, Hextile, Raw,
-        // CopyRect). This avoids the standalone RawDecoder, which does not
-        // handle compact CPIXEL.
-        //
-        currentEncoding = Encodings.encodingZRLE;
+        formatChange = true;
+        encodingChange = true;
     }
 
-    @Override
-    public PixelFormat getPreferredPF() {
-        return NATIVE_PF;
-    }
-
-    /**
-     * Compute the native pixel format from the AWT toolkit's ColorModel,
-     * matching the logic in TigerVNC's PlatformPixelBuffer.getNativePF().
-     */
     private static PixelFormat computeNativePF() {
-        // JavaFX Prism pipeline normalizes rendering to standard 32-bit TrueColor (24-bit color depth)
         int depth = 24;
         int bpp = 32;
         boolean bigEndian = (ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN);
         boolean trueColour = true;
-
-        // 8 bits per channel max values (0xff)
         int redMax = 0xff;
         int greenMax = 0xff;
         int blueMax = 0xff;
-
-        // Standard 32-bit RGB bit shifts matching JavaFX ARGB pixel format
         int redShift = 16;
         int greenShift = 8;
         int blueShift = 0;
@@ -167,81 +131,84 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback, 
         );
     }
 
+    // TODO: is it still used?
     public void connectionLost() {
         logger.info("Connection to VNC server lost");
         runOnFxThread(() -> connected.set(false));
     }
 
-    public void pointerEvent(Point position, int buttonMask) {
-        if (state() != RFBSTATE_NORMAL || !connected.get()) {
+    public void pointerEvent(Point2D position, int buttonMask) {
+        if (!connected.get() || rfb == null) {
             return;
         }
-        writer().writePointerEvent(position, buttonMask);
+        try {
+            rfb.sendPointerEvent(buttonMask, (int) position.getX(), (int) position.getY());
+        } catch (IOException e) {
+            logger.log(Level.WARNING, "Failed to send pointer event", e);
+        }
     }
 
     public void keyEvent(int keysym, boolean keyDown) {
-        if (state() != RFBSTATE_NORMAL || !connected.get()) {
+        if (!connected.get() || rfb == null) {
             return;
         }
-        logger.finest("Key event: keysym=0x" + Integer.toHexString(keysym)
-            + (keyDown ? " down" : " up"));
-        writer().writeKeyEvent(keysym, keyDown);
+        try {
+            rfb.sendKeyEvent(keyDown, keysym);
+        } catch (IOException e) {
+            logger.log(Level.WARNING, "Failed to send key event", e);
+        }
     }
 
-    @Override
-    public void serverInit() {
-        super.serverInit();
-
-        serverPF = cp.pf();
+    public void serverInit(ServerInit serverInit) {
+        this.serverPF = serverInit.getPixelFormat();
         fullColourPF = NATIVE_PF;
 
-        logger.info("serverInit: serverPF=" + serverPF.print() + " fullColourPF=" + fullColourPF.print());
+        logger.info("serverInit: serverPF=" + serverPF + " fullColourPF=" + fullColourPF);
 
-        resizeImage(cp.width, cp.height);
+        resizeImage(serverInit.getFramebufferWidth(), serverInit.getFramebufferHeight());
 
         formatChange = true;
         encodingChange = true;
         logger.finest("serverInit done, formatChange=" + formatChange + " encodingChange=" + encodingChange);
 
         if (continuousUpdates) {
-            writer().writeEnableContinuousUpdates(true, 0, 0, cp.width, cp.height);
+            try {
+                rfb.requestFramebufferUpdate(true,
+                    new Rectangle(0, 0, serverInit.getFramebufferWidth(), serverInit.getFramebufferHeight()));
+            } catch (IOException e) {
+                logger.log(Level.WARNING, "Failed to enable continuous updates", e);
+            }
         }
 
         if (pendingPFChange) {
-            cp.setPF(pendingPF);
+            try {
+                rfb.setPixelFormat(pendingPF);
+            } catch (IOException e) {
+                logger.log(Level.WARNING, "Failed to set pending pixel format", e);
+            }
             pendingPFChange = false;
         }
 
         requestNewUpdate();
     }
 
-    @Override
     public void setDesktopSize(int w, int h) {
         if ((desktopSize.width != w) || (desktopSize.height != h)) {
             logger.info("Setting desktop size to %dx%d".formatted(w, h));
-
-            super.setDesktopSize(w, h);
             desktopSize.width = w; desktopSize.height = h;
             resizeImage(w, h);
         }
     }
 
-    @Override
     public void setExtendedDesktopSize(int reason, int result, int w, int h, ScreenSet layout) {
-        super.setExtendedDesktopSize(reason, result, w, h, layout);
-
         final long desktopSizeHash = desktopSizeHash(reason, result, w, h, layout);
         if (desktopSizeHash != lastDesktopSizeHash) {
             logger.info("Setting desktop size (extended) to %d, %d, %dx%d, %s".formatted(reason, result, w, h, toString(layout)));
-
-
             resizeImage(w, h);
-
             lastDesktopSizeHash = desktopSizeHash;
         }
     }
 
-    @Override
     public void framebufferUpdateStart() {
         updateCount++;
         logger.finest("framebufferUpdateStart #" + updateCount);
@@ -249,20 +216,17 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback, 
         requestNewUpdate();
     }
 
-    @Override
     public void framebufferUpdateEnd() {
         logger.finest("framebufferUpdateEnd #" + updateCount + ", dirty: " + toString(dirtyRect));
 
         if (dirtyRect != null) {
-            final int x = dirtyRect.tl.x;
-            final int y = dirtyRect.tl.y;
+            final int x = dirtyRect.x();
+            final int y = dirtyRect.y();
             final int w = dirtyRect.width();
             final int h = dirtyRect.height();
 
-            // Reset dirtyRect for the next frame
             dirtyRect = null;
 
-            // Single JavaFX pulse for all accumulated updates
             Platform.runLater(() -> {
                 if (pixelBuffer != null) {
                     pixelBuffer.updateBuffer(pb -> new Rectangle2D(x, y, w, h));
@@ -271,98 +235,82 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback, 
         }
 
         if (pendingPFChange) {
-            cp.setPF(pendingPF);
+            try {
+                rfb.setPixelFormat(pendingPF);
+            } catch (IOException e) {
+                logger.log(Level.WARNING, "Failed to set pending pixel format", e);
+            }
             pendingPFChange = false;
         }
     }
 
-    @Override
     public void setColourMapEntries(int firstColour, int nColours, int[] rgbs) {
-        // Palette modes not supported in this minimal viewer.
     }
 
-    @Override
     public void bell() {
         Toolkit.getDefaultToolkit().beep();
     }
 
-    @Override
     public void serverCutText(String str, int len) {
         logger.finest("Received ServerCutText of length " + len);
         Platform.runLater(() -> clipboard.set(str));
     }
 
-    @Override
-    public void beginRect(Rect r, int encoding) {
+    public void beginRect(Rectangle r, int encoding) {
         logger.finest("beginRect #" + updateCount + ": " + toString(r) + " encoding=" + encodingName(encoding));
-        if (sock != null) {
-            sock.inStream().startTiming();
-        }
     }
 
-    @Override
-    public  void endRect(final Rect r, final int encoding) {
+    public void endRect(final Rectangle r, final int encoding) {
         logger.finest("endRect #" + updateCount + ": " + toString(r));
-        if (sock != null) {
-            sock.inStream().stopTiming();
-        }
     }
 
-    @Override
-    public void fillRect(final Rect r, final int p) {
+    public void fillRect(final Rectangle r, final int p) {
         logger.finest("fillRect #%d: %s with %h".formatted(updateCount, toString(r), p));
-        if (image.get() == null) {
+        if (imageBuffer == null) {
             return;
         }
 
-        final WritableImage I = image.get();
-
-        // buond check
-        if (r.tl.x < 0 || r.tl.y < 0 || r.width() > I.getWidth() || r.height() > I.getHeight()) {
-          logger.info("fillRect out of bounds: x=" + r.tl.x + " y=" + r.tl.y + " w=" + r.width() + " h=" + r.height() + " (image=" + I.getWidth() + "x" + I.getHeight() + ")");
-          return;
+        if (r.x() < 0 || r.y() < 0 || r.x() + r.width() > imageWidth || r.y() + r.height() > imageHeight) {
+            logger.info("fillRect out of bounds: x=" + r.x() + " y=" + r.y() + " w=" + r.width() + " h=" + r.height() + " (image=" + imageWidth + "x" + imageHeight + ")");
+            return;
         }
 
-        // update buffers
         final int pixel = toJavaFxPixel(p);
-        final int startY = r.tl.y, endY = r.br.y;
+        final int startY = r.y(), endY = r.y() + r.height();
+        final int w = r.width();
         for (int y = startY; y < endY; ++y) {
-            final int offset = y * (int)I.getWidth() + r.tl.x;
-            Arrays.fill(imageBuffer, offset, offset + r.width(), pixel);
+            final int offset = y * imageWidth + r.x();
+            Arrays.fill(imageBuffer, offset, offset + w, pixel);
         }
 
         markDirty(r);
     }
 
-    @Override
-    public void imageRect(final Rect r, final Object p) {
-        final Rectangle2D R = new Rectangle2D(r.tl.x, r.tl.y, r.width(), r.height());
+    public void imageRect(final Rectangle r, final Object p) {
+        final Rectangle2D R = new Rectangle2D(r.x(), r.y(), r.width(), r.height());
 
         int[] src = (p instanceof int[]) ? (int[]) p : null;
         logger.finest("imageRect #" + updateCount + ": " + R + " len=" + (src != null ? String.valueOf(src.length) : "null"));
 
-        if (src == null) {
+        if (src == null || imageBuffer == null) {
             return;
         }
 
-        final WritableImage I = image.get();
-
-        // buond check
-        if (R.getMinX() < 0 || R.getMinY() < 0 || R.getWidth() > I.getWidth() || R.getHeight() > I.getHeight()) {
-          logger.info("fillRect out of bounds: x=" + R + " (image=" + I.getWidth() + "x" + I.getHeight() + ")");
-          return;
+        if (r.x() < 0 || r.y() < 0 || r.x() + r.width() > imageWidth || r.y() + r.height() > imageHeight) {
+            logger.info("imageRect out of bounds: " + R + " (image=" + imageWidth + "x" + imageHeight + ")");
+            return;
         }
 
-        if (src.length < R.getWidth() * R.getHeight() ) {
-          logger.info("imageRect src too small: " + src.length + " < " + R.getWidth() * R.getHeight());
-          return;
+        if (src.length < R.getWidth() * R.getHeight()) {
+            logger.info("imageRect src too small: " + src.length + " < " + R.getWidth() * R.getHeight());
+            return;
         }
 
-        final int rectWidth  = (int)R.getWidth();
-        final int rectHeight = (int)R.getHeight();
+        final int rectWidth  = r.width();
+        final int rectHeight = r.height();
 
         for (int y = 0; y < rectHeight; y++) {
-            int dstRowOffset = (int)((R.getMinY() + y) * I.getWidth() + R.getMinX());
+            int dstRowOffset = (r.y() + y) * imageWidth + r.x();
             int srcRowOffset = y * rectWidth;
 
             for (int x = 0; x < rectWidth; x++) {
@@ -373,37 +321,36 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback, 
         markDirty(r);
     }
 
-    @Override
-    public void copyRect(final Rect r, final int sx, final int sy) {
+    public void copyRect(final Rectangle r, final int sx, final int sy) {
         logger.finest("copyRect #" + updateCount + ": " + toString(r) + " from (" + sx + "," + sy + ")");
 
-        final WritableImage i = image.get();
-        // Bounds check
-        if (r.tl.x < 0 || r.tl.y < 0 || r.width() > i.getWidth() || r.height() > i.getHeight()) {
-          logger.info("copyRect out of bounds: x=" + r.tl.x + " y=" + r.tl.y + " w=" + r.width() + " h=" + r.height() + " (image=" + i.getWidth() + "x" + i.getHeight() + ")");
-          return;
-        }
-        if (sx < 0 || sy < 0 || sx + r.width() > i.getWidth() || sy + r.height() > i.getHeight()) {
-          logger.info("copyRect src out of bounds: sx=" + sx + " sy=" + sy + " w=" + r.width() + " h=" + r.height());
-          return;
+        if (imageBuffer == null) {
+            return;
         }
 
-        final int stride = (int) i.getWidth();
+        if (r.x() < 0 || r.y() < 0 || r.x() + r.width() > imageWidth || r.y() + r.height() > imageHeight) {
+            logger.info("copyRect out of bounds: x=" + r.x() + " y=" + r.y() + " w=" + r.width() + " h=" + r.height() + " (image=" + imageWidth + "x" + imageHeight + ")");
+            return;
+        }
+        if (sx < 0 || sy < 0 || sx + r.width() > imageWidth || sy + r.height() > imageHeight) {
+            logger.info("copyRect src out of bounds: sx=" + sx + " sy=" + sy + " w=" + r.width() + " h=" + r.height());
+            return;
+        }
+
+        final int stride = imageWidth;
         final int width = r.width();
         final int height = r.height();
 
-        if (r.tl.y > sy) {
-            // Copy bottom-to-top when moving down to avoid overwriting overlapping memory
+        if (r.y() > sy) {
             for (int y = height - 1; y >= 0; y--) {
                 int srcOffset = (sy + y) * stride + sx;
-                int dstOffset = (r.tl.y + y) * stride + r.tl.x;
+                int dstOffset = (r.y() + y) * stride + r.x();
                 System.arraycopy(imageBuffer, srcOffset, imageBuffer, dstOffset, width);
             }
         } else {
-            // Copy top-to-bottom
             for (int y = 0; y < height; y++) {
                 int srcOffset = (sy + y) * stride + sx;
-                int dstOffset = (r.tl.y + y) * stride + r.tl.x;
+                int dstOffset = (r.y() + y) * stride + r.x();
                 System.arraycopy(imageBuffer, srcOffset, imageBuffer, dstOffset, width);
             }
         }
@@ -411,187 +358,167 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback, 
         markDirty(r);
     }
 
-    @Override
     public void fence(int flags, int len, byte[] data) {
-        logger.finest("fence with flags: " + flags + ", len: " + len);
-        cp.supportsFence = true;
-
-        if ((flags & fenceTypes.fenceFlagRequest) != 0) {
-            logger.finest("fenceTypes.fenceFlagRequest");
-            flags = flags & (fenceTypes.fenceFlagBlockBefore | fenceTypes.fenceFlagBlockAfter);
-            writer().writeFence(flags, len, data);
-            return;
-        }
+        logger.finest(() -> "fence with flags: %d, len: %d".formatted(flags, len));
 
         if (len == 0) {
-            if ((flags & fenceTypes.fenceFlagSyncNext) != 0) {
+            if ((flags & FenceType.SYNC_NEXT.code) != 0) {
                 supportsSyncFence = true;
                 continuousUpdates = false;
             }
-        } else {
-            MemInStream memStream = new MemInStream(data, 0, len);
-            PixelFormat pf = new PixelFormat();
-
-            pf.read(memStream);
-            logger.info("fence: new pixel format: " + pf.print());
-
-            cp.setPF(pf);
         }
     }
 
-    @Override
-    public void blockCallback() {
-        try {
-            synchronized (this) {
-                wait(1);
-            }
-        } catch (InterruptedException e) {
-            throw new com.tigervnc.rfb.Exception(e.getMessage());
-        }
-    }
-
-    /**
-     * Shuts down the network socket and stops background executor threads.
-     * Idempotent and safe to call multiple times.
-     */
     @Override
     public void close() {
         logger.info(() -> "closing VNC service and releasing resources");
         runOnFxThread(() -> connected.set(false));
 
-        // 1. Close socket to unblock read/write operations
-        if (sock != null) {
+        if (client != null) {
             try {
-                Socket s = sock;
-                sock = null; // Prevents re-entry
-                s.shutdown();
+                client.close();
             } catch (Exception e) {
-                logger.warning("error closing VNC socket: " + e.getMessage());
+                logger.log(Level.WARNING, "error closing VNC client", e);
+            }
+            client = null;
+        }
+
+        if (socket != null) {
+            try {
+                Socket s = socket;
+                socket = null;
+                s.close();
+            } catch (Exception e) {
+                logger.log(Level.WARNING, "error closing VNC socket", e);
             }
         }
 
-        // 2. Cancel the running task if any
         if (vncProcessing != null && !vncProcessing.isCancelled()) {
             vncProcessing.cancel(true);
         }
     }
 
     public void writeWheelEvent(ScrollEvent ev) {
-        if (state() != RFBSTATE_NORMAL || !connected.get()) {
+        if (!connected.get()) {
             return;
         }
 
         double dy = ev.getDeltaY();
-        logger.finest("Scroll event: deltaY=" + dy);
+        logger.finest(() -> "Scroll event: deltaY=%".formatted(dy));
         if (dy == 0.0) {
             return;
         }
 
         int clicks = (int) Math.signum(dy);
-        int buttonMask = clicks < 0 ? 16 : 8;
+        int buttonMask = clicks < 0 ? RFBStream.POINTER_WHEEL_UP : RFBStream.POINTER_WHEEL_DOWN;
 
-        Point p = eventBridge.screenToVnc(ev.getX(), ev.getY());
-        writer().writePointerEvent(p, buttonMask);
-        writer().writePointerEvent(p, 0);
+        Point2D p = eventBridge.screenToVnc(ev.getX(), ev.getY());
+        pointerEvent(p, buttonMask);
+        pointerEvent(p, 0);
     }
 
-    /**
-     * Requests the server to resize the remote desktop to the given size, if
-     * the server supports the SetDesktopSize extension.
-     */
     public void requestDesktopSize(final int width, final int height) {
-        logger.finest(() ->"requesting new desktop size %dx%d".formatted(width, height));
+        logger.finest(() -> "requesting new desktop size %dx%d".formatted(width, height));
 
-        if (width <= 0 || height <= 0) {
+        if (width <= 0 || height <= 0 || rfb == null) {
             return;
         }
 
-        if (!cp.supportsSetDesktopSize) {
-            return;
-        }
-
-        if (width == lastRequestedDesktopWidth && height == lastRequestedDesktopHeight) {
+        if (lastRequestedDesktopWidth == width && lastRequestedDesktopHeight == height) {
             return;
         }
 
         lastRequestedDesktopWidth = width;
         lastRequestedDesktopHeight = height;
 
-        ScreenSet layout = cp.screenLayout;
+        ScreenSet layout = new ScreenSet();
+        layout.addScreen(new Screen(0, new Rectangle(0, 0, width, height), 0));
 
-        if (layout.num_screens() == 0) {
-            layout.add_screen(new Screen());
-        } else if (layout.num_screens() != 1) {
-            while (layout.num_screens() > 1) {
-                Iterator<Screen> iter = layout.screens.iterator();
-                Screen screen = iter.next();
-                if (!iter.hasNext()) {
-                    break;
-                }
-                layout.remove_screen(screen.id);
-            }
+        try {
+            rfb.setDesktopSize(width, height, layout);
+        } catch (IOException e) {
+            logger.log(Level.WARNING, "Failed to request desktop size", e);
         }
-
-        Screen screen0 = layout.screens.iterator().next();
-        screen0.dimensions.tl.x = 0;
-        screen0.dimensions.tl.y = 0;
-        screen0.dimensions.br.x = width;
-        screen0.dimensions.br.y = height;
-
-        writer().writeSetDesktopSize(width, height, layout);
         incremental = false;
         requestNewUpdate();
     }
 
-    // --------------------------------------------------------------- main loop
+    protected Socket createSocket(String host, int port) throws Exception {
+        return new Socket(host, port);
+    }
 
-    // Start the RFB processing loop on a background thread so that
-    // incoming framebuffer updates are handled continuously.
-    // Use a virtual thread for blocking socket I/O loops
+    protected VNCClient createVNCClient(Socket sock, boolean shared) throws IOException {
+        final RFBStream rfb = new RFBStream(sock.getInputStream(), sock.getOutputStream());
+        rfb.handshake(shared);
+        return new VNCClient(sock, rfb);
+    }
+
     public void connect(final String host, final int port) {
         vncProcessing = executor.submit(() -> {
             try {
                 incremental = false;
                 logger.info(() -> "connecting to %s:%d".formatted(host, port));
-                sock = createSocket(host, port);
-                sock.inStream().setBlockCallback(this);
-                setStreams(sock.inStream(), sock.outStream());
-                doInitialiseProtocol();
+                socket = createSocket(host, port);
+                client = createVNCClient(socket, true);
+                this.rfb = client != null ? new RFBStream(client.getInputStream(), client.getOutputStream()) : null;
 
-                runOnFxThread(() -> connected.set(true));
-                logger.info(() -> "connected to " + sock.getPeerEndpoint());
+                if (client != null) {
+                    ServerInit serverInit = client.getServerInit();
+                    serverInit(serverInit);
+                }
+
+                connected.set(true);
+                logger.info(() -> "connected");
 
                 while (!Thread.currentThread().isInterrupted()) {
                     processMsg();
                 }
             } catch (Exception e) {
                 logger.info("RFB loop terminated: " + e.getMessage());
+                connectionLost();
             } finally {
                 close();
             }
         });
     }
 
-    /**
-     * Alias for {@link #close()} for lifecycle symmetry with {@link #connect()}.
-     */
     public void disconnect() {
         close();
     }
 
-    protected Socket createSocket(String host, int port) throws Exception {
-        return new TcpSocket(host, port);
+    private void processMsg() throws IOException {
+        ServerMessage msg = client.readMessage();
+        if (msg instanceof FramebufferUpdateMessage fum) {
+            processFramebufferUpdate(fum);
+        } else if (msg instanceof ste.vnc.rfb.BellMessage) {
+            bell();
+        } else if (msg instanceof ServerCutTextMessage scm) {
+            serverCutText(scm.getText(), scm.getText().length());
+        } else if (msg instanceof ste.vnc.rfb.SetColourMapEntriesMessage) {
+            setColourMapEntries(0, 0, new int[0]);
+        }
     }
 
-    protected void doInitialiseProtocol() {
-        initialiseProtocol(); // Mainly for testing, it calls the final parent method
+    private void processFramebufferUpdate(FramebufferUpdateMessage fum) {
+        framebufferUpdateStart();
+        for (FramebufferUpdateRectangle updateRect : fum.getRectangles()) {
+            final Rectangle r = updateRect.getRectangle();
+            beginRect(r, updateRect.getEncodingType());
+            if (updateRect.isCopyRect()) {
+                copyRect(r, updateRect.getSourceX(), updateRect.getSourceY());
+            } else if (updateRect.getPixels() != null) {
+                imageRect(r, updateRect.getPixels());
+            }
+            endRect(r, updateRect.getEncodingType());
+        }
+        framebufferUpdateEnd();
     }
-
-    // ---------------------------------------------------------------------
 
     private void resizeImage(final int w, final int h) {
-        if (cp.width > 0 && cp.height > 0) {
+        if (w > 0 && h > 0) {
             imageBuffer = new int[w * h];
+            imageWidth = w;
+            imageHeight = h;
             pixelBuffer = new PixelBuffer(
                 w, h,
                 IntBuffer.wrap(imageBuffer),
@@ -602,7 +529,7 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback, 
     }
 
     private void requestNewUpdate() {
-        if (writer() == null) {
+        if (rfb == null) {
             return;
         }
 
@@ -613,28 +540,24 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback, 
                 pf = fullColourPF;
             } else {
                 pf = switch (lowColourLevel) {
-                    case 0 ->
-                        verylowColourPF;
-                    case 1 ->
-                        lowColourPF;
-                    default ->
-                        mediumColourPF;
+                    case 0 -> verylowColourPF;
+                    case 1 -> lowColourPF;
+                    default -> mediumColourPF;
                 };
             }
 
             if (supportsSyncFence) {
-                MemOutStream memStream = new MemOutStream();
-                pf.write(memStream);
-                writer().writeFence(fenceTypes.fenceFlagRequest | fenceTypes.fenceFlagSyncNext,
-                    memStream.length(), (byte[]) memStream.data());
-            } else {
                 pendingPFChange = true;
                 pendingPF = pf;
             }
 
-            String str = pf.print();
+            String str = pf.toString();
             logger.info("Using pixel format " + str);
-            writer().writeSetPixelFormat(pf);
+            try {
+                rfb.setPixelFormat(pf);
+            } catch (IOException e) {
+                logger.log(Level.WARNING, "Failed to set pixel format", e);
+            }
 
             formatChange = false;
         }
@@ -649,24 +572,26 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback, 
             logger.finest("Sending update request (incremental=" + incremental + ")");
             pendingUpdate = true;
 
-            // Fix: Pass the incremental variable instead of hardcoded 'false'
-            writer().writeFramebufferUpdateRequest(new Rect(0, 0, cp.width, cp.height), incremental);
+            try {
+                rfb.requestFramebufferUpdate(incremental,
+                    new Rectangle(0, 0, imageWidth, imageHeight));
+            } catch (IOException e) {
+                logger.log(Level.WARNING, "Failed to request framebuffer update", e);
+            }
         }
 
-        // Fix: Only mark incremental = true AFTER sending the initial update request
         if (!incremental) {
             incremental = true;
         }
     }
 
     private void requestEncodings() {
-        // Use the same encoding negotiation as the Swing viewer: advertise
-        // the preferred encoding plus all supported fallbacks (CopyRect,
-        // ZRLE, Hextile, Tight, etc.). This lets the server choose the
-        // encoding it handles best, which in practice is ZRLE.
-        logger.info("Requesting " + Encodings.encodingName(currentEncoding)
-            + " encoding with fallbacks (Swing-style)");
-        writer().writeSetEncodings(currentEncoding, true);
+        logger.info("Requesting " + encodingName(currentEncoding) + " encoding");
+        try {
+            rfb.setEncodings(EncodingType.fromCode(currentEncoding));
+        } catch (IOException e) {
+            logger.log(Level.WARNING, "Failed to set encodings", e);
+        }
     }
 
     private void runOnFxThread(Runnable action) {
@@ -678,19 +603,18 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback, 
     }
 
     public void writeClientCutText(String str, int len) {
-        if (state() != RFBSTATE_NORMAL || !connected.get()) {
+        if (!connected.get() || rfb == null) {
             return;
         }
-        writer().writeClientCutText(str, len);
+        try {
+            rfb.sendClipboardText(str);
+        } catch (IOException e) {
+            logger.log(Level.WARNING, "Failed to send clipboard text", e);
+        }
     }
 
     private String encodingName(int encoding) {
-        switch (encoding) {
-            case Encodings.encodingRaw: return "Raw";
-            case Encodings.encodingZRLE: return "ZRLE";
-            case Encodings.encodingCopyRect: return "CopyRect";
-            default: return String.valueOf(encoding);
-        }
+        return Encodings.encodingName(encoding);
     }
 
     private long desktopSizeHash(int reason, int result, int w, int h, ScreenSet layout) {
@@ -702,7 +626,7 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback, 
             return null;
         }
         final StringBuffer sb = new StringBuffer();
-        on(ss.screens).loop((screen) -> sb.append(toString(screen)).append(" "));
+        on(ss.screens()).loop((screen) -> sb.append(toString(screen)).append(" "));
         return sb.toString();
     }
 
@@ -710,56 +634,46 @@ public class VNCService extends CConnection implements FdInStreamBlockCallback, 
         return "(%d/%s/%d)".formatted(s.id, toString(s.dimensions), s.flags);
     }
 
-    private String toString(final Rect r) {
-        return (r == null) ? "null" : "[%s-%s]".formatted(toString(r.tl), toString(r.br));
+    private String toString(final Rectangle r) {
+        return (r == null) ? "null" : "[%d,%d-%d,%d]".formatted(r.x(), r.y(), r.x() + r.width(), r.y() + r.height());
     }
 
-    private String toString(final Point p) {
-        return (p == null) ? "null" : "(%d,%d)".formatted(p.x, p.y);
-    }
-
-   /*
-   * Converts a pixel from the server-declared pixel format to JavaFX's
-   * {@code INT_ARGB}, forcing full opacity. This lets the viewer request the
-   * native display format (matching the Swing viewer) and correct for it here.
-   */
     private int toJavaFxPixel(int p) {
-        if (serverPF == null || !serverPF.trueColour || serverPF.depth <= 8) {
-            // Fallback for missing or palette formats: just force opaque.
+        if (serverPF == null || !serverPF.isTrueColor() || serverPF.getDepth() <= 8) {
             return p | 0xff000000;
         }
 
-        if (serverPF.trueColour && serverPF.depth >= 24 && serverPF.redShift == 16) {
+        if (serverPF.isTrueColor() && serverPF.getDepth() >= 24 && serverPF.getRedShift() == 16) {
             return p | 0xff000000;
         }
 
-        int r = (p >>> serverPF.redShift) & serverPF.redMax;
-        int g = (p >>> serverPF.greenShift) & serverPF.greenMax;
-        int b = (p >>> serverPF.blueShift) & serverPF.blueMax;
+        int r = (p >>> serverPF.getRedShift()) & serverPF.getRedMax();
+        int g = (p >>> serverPF.getGreenShift()) & serverPF.getGreenMax();
+        int b = (p >>> serverPF.getBlueShift()) & serverPF.getBlueMax();
 
-        // Scale component ranges up to 8 bits when the server uses fewer bits.
-        if (serverPF.redMax != 255) {
-            r = r * 255 / serverPF.redMax;
+        if (serverPF.getRedMax() != 255) {
+            r = r * 255 / serverPF.getRedMax();
         }
-        if (serverPF.greenMax != 255) {
-            g = g * 255 / serverPF.greenMax;
+        if (serverPF.getGreenMax() != 255) {
+            g = g * 255 / serverPF.getGreenMax();
         }
-        if (serverPF.blueMax != 255) {
-            b = b * 255 / serverPF.blueMax;
+        if (serverPF.getBlueMax() != 255) {
+            b = b * 255 / serverPF.getBlueMax();
         }
 
         return 0xff000000 | (r << 16) | (g << 8) | b;
     }
 
-    private void markDirty(final Rect r) {
+    private void markDirty(final Rectangle r) {
         if (dirtyRect == null) {
-            dirtyRect = new Rect(r.tl, r.br);
+            dirtyRect = new Rectangle(r.x(), r.y(), r.width(), r.height());
             return;
         }
 
-        dirtyRect.tl.x = Math.min(dirtyRect.tl.x, r.tl.x);
-        dirtyRect.tl.y = Math.min(dirtyRect.tl.y, r.tl.y);
-        dirtyRect.br.x = Math.max(dirtyRect.br.x, r.br.x);
-        dirtyRect.br.y = Math.max(dirtyRect.br.y, r.br.y);
+        final int newX = Math.min(dirtyRect.x(), r.x());
+        final int newY = Math.min(dirtyRect.y(), r.y());
+        final int newRight = Math.max(dirtyRect.x() + dirtyRect.width(), r.x() + r.width());
+        final int newBottom = Math.max(dirtyRect.y() + dirtyRect.height(), r.y() + r.height());
+        dirtyRect = new Rectangle(newX, newY, newRight - newX, newBottom - newY);
     }
 }

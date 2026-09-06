@@ -17,9 +17,6 @@
  */
 package ste.vnc.viewer.demo;
 
-import com.tigervnc.rfb.Configuration;
-import com.tigervnc.rfb.Security;
-import com.tigervnc.rfb.SecurityClient;
 import java.util.logging.Logger;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
@@ -55,18 +52,6 @@ public class VNCViewerDemoController {
     public void initialize() {
         log.finest(() -> "initializing the controller");
 
-        // TODO: move the below to the WebChat component initialization
-
-        // Enable viewer parameters so Configuration.setParam() can see them
-        Configuration.enableViewerParams();
-
-        // Restrict security to None only
-        SecurityClient.setDefaults();
-        Security.enabledSecTypes.clear();
-        Security.EnableSecType(Security.secTypeNone);
-
-        // ----
-        
         Platform.runLater(() -> {
             titleBar.onFullscreen(this::onToggleFullScreen);
             titleBar.onAbout(this::onAbout);

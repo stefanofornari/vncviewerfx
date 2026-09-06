@@ -16,7 +16,7 @@ This document defines the development framework and workflow for the Quick Quest
 ## JavaFX
 - use fxml descriptors whenever possible
 
-## Testing Strategy
+## TDD Development Workflow
 - Follow a TDD workflow.
   1. Write failing tests before implementation and check they fail
   2. Write the minimal production code to pass the test
