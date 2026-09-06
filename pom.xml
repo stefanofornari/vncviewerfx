@@ -202,7 +202,7 @@
                     <useReleaseProfile>false</useReleaseProfile>
                     <releaseProfiles>release</releaseProfiles>
                     <goals>deploy</goals>
-                    <arguments>-Dmaven.javadoc.skip=true -DskipTests</arguments>
+                    <arguments>-DskipTests</arguments>
                 </configuration>
             </plugin>
             <plugin>
@@ -335,6 +335,10 @@
                                 </goals>
                             </execution>
                         </executions>
+                        <configuration>
+                            <failOnError>false</failOnError>
+                            <failOnWarnings>false</failOnWarnings>
+                        </configuration>
                     </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
