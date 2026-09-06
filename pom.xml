@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.github.stefanofornari</groupId>
     <artifactId>vncviewerfx</artifactId>
-    <version>0.0.0-SNAPSHOT</version>
+    <version>0.0.0</version>
     <packaging>jar</packaging>
 
     <name>VNCViewerFX</name>
@@ -369,7 +369,7 @@
     <scm>
         <connection>scm:git:git@github.com:stefanofornari/vncviewerfx.git</connection>
         <url>https://github.com/stefanofornari/vncviewerfx</url>
-        <tag>HEAD</tag>
+        <tag>vncviewerfx-0.0.0</tag>
     </scm>
 
 </project>
